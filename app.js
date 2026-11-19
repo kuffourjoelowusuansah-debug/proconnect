@@ -405,7 +405,7 @@ document.addEventListener('submit', (e) => {
   if (kind === 'landing') { state.query = state.landing.svc; state.location = state.landing.loc; setRole('customer'); }
   if (kind === 'auth') submitAuth(f);
   if (kind === 'account') saveAccount(f);
-});
+
 });
 
 render();
