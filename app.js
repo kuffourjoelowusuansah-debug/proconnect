@@ -56,7 +56,105 @@ const PORTFOLIO = {
 /* ---------- State ---------- */
 const freshDraft = () => ({ type: 'Personal', name: '', category: 'Plumbing', area: '', phone: '', years: 3, bio: '', photo: null });
 const state = { screen: 'landing', role: 'customer', selected: null, query: '', location: '', category: '', workers: [...SEED], draft: freshDraft(), landing: { svc: '', loc: '' } };
+/* ================= ACCOUNT LAYER =================
+   AUTH is the ONLY part your developer has to connect to the real backend.
+   Every function returns a Promise. Until they are connected the UI says so honestly. */
+const NOT_CONNECTED = () => Promise.reject(new Error('NOT_CONNECTED'));
+const AUTH = {
+  signUp: (/* { name, phone, email, password } */) => NOT_CONNECTED(),   // resolve { id, name, phone, email } (or null if email confirmation is needed)
+  signIn: (/* { email, password } */) => NOT_CONNECTED(),                // resolve { id, name, phone, email }
+  signOut: () => NOT_CONNECTED(),
+  restoreSession: () => Promise.resolve(null),                           // resolve the logged-in user, or null
+  updateAccount: (/* { name, phone } */) => NOT_CONNECTED(),             // resolve the updated user
+  getMyWorkerProfile: () => Promise.resolve(null),                       // resolve this user's worker profile, or null
+  saveMyWorkerProfile: (/* profile incl. userId */) => NOT_CONNECTED(),  // create or update, resolve the saved profile
+};
+const authError = (e) => e.message === 'NOT_CONNECTED' ? 'Accounts are not connected yet. Browsing is open to everyone.' : e.message;
+Object.assign(state, { user: null, myProfile: null, busy: '', acct: { error: '' }, auth: { mode: 'login', error: '', info: '', reason: '', values: {} } });
 
+async function startSession(user) {
+  state.user = user;
+  try { state.myProfile = await AUTH.getMyWorkerProfile(); } catch (e) { state.myProfile = null; }
+  state.draft = state.myProfile ? { ...freshDraft(), ...state.myProfile } : { ...freshDraft(), name: user.name || '', phone: user.phone || '' };
+}
+async function submitAuth(f) {
+  const a = state.auth, wantsWorker = !!a.reason, signup = a.mode === 'signup';
+  a.error = ''; a.info = ''; a.values = { name: f.name, phone: f.phone, email: f.email }; state.busy = 'auth'; render();
+  try {
+    const user = signup
+      ? await AUTH.signUp({ name: f.name.trim(), phone: f.phone.trim(), email: f.email.trim(), password: f.password })
+      : await AUTH.signIn({ email: f.email.trim(), password: f.password });
+    state.busy = '';
+    if (!user) { a.mode = 'login'; a.info = 'Account created. Check your email to confirm it, then log in.'; return render(); }
+    await startSession(user);
+    wantsWorker ? setRole('worker') : go('account');
+  } catch (e) { state.busy = ''; a.error = authError(e); render(); }
+}
+async function saveAccount(f) {
+  state.acct.error = ''; state.busy = 'acct'; render();
+  try { state.user = await AUTH.updateAccount({ name: f.name.trim(), phone: f.phone.trim() }); toast('Account updated.'); }
+  catch (e) { state.acct.error = authError(e); }
+  state.busy = ''; render();
+}
+async function saveProfile() {
+  if (!draftReady()) return;
+  const isNew = !state.myProfile; state.busy = 'save'; render();
+  try {
+    state.myProfile = await AUTH.saveMyWorkerProfile({ ...state.draft, userId: state.user.id });
+    /* your developer: reload the public worker list here so the new profile shows in the marketplace */
+    toast(isNew ? 'Profile published.' : 'Profile saved.');
+  } catch (e) { toast(authError(e)); }
+  state.busy = ''; render();
+}
+
+const authScreen = () => {
+  const a = state.auth, su = a.mode === 'signup', v = a.values || {};
+  const input = 'w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+  const field = (label, name, type = 'text', extra = '') => `<label class="grid gap-1 text-sm font-semibold">${label}<input name="${name}" type="${type}" required value="${type === 'password' ? '' : esc(v[name])}" class="${input}" ${extra}></label>`;
+  return `
+  <section class="max-w-md mx-auto px-5 py-12 pop"><div class="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8">
+    <h2 class="text-2xl font-extrabold">${su ? 'Create your account' : 'Welcome back'}</h2>
+    <p class="text-slate-500 mt-1">${esc(a.reason) || (su ? 'One account for your details and your worker profile.' : 'Log in to manage your account and worker profile.')}</p>
+    <form data-form="auth" class="mt-6 grid gap-4">
+      ${su ? field('Full name', 'name', 'text', 'autocomplete="name"') + field('Phone / WhatsApp', 'phone', 'tel', 'autocomplete="tel"') : ''}
+      ${field('Email', 'email', 'email', 'autocomplete="email"')}
+      ${field('Password', 'password', 'password', `minlength="6" autocomplete="${su ? 'new-password' : 'current-password'}"`)}
+      ${a.error ? `<p class="text-sm text-red-600" role="alert">${esc(a.error)}</p>` : ''}
+      ${a.info ? `<p class="text-sm text-emerald-700" role="status">${esc(a.info)}</p>` : ''}
+      <button class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold py-3.5 transition-colors" ${state.busy === 'auth' ? 'disabled' : ''}>${state.busy === 'auth' ? 'Please wait…' : su ? 'Sign up' : 'Log in'}</button>
+    </form>
+    <button data-action="auth-mode" class="mt-4 text-sm font-semibold text-brand hover:underline">${su ? 'Already have an account? Log in' : 'New here? Create an account'}</button>
+    <button data-action="skip" class="mt-2 block text-sm text-slate-500 hover:underline">Continue as guest</button>
+  </div></section>`;
+};
+
+const accountScreen = () => {
+  const u = state.user; if (!u) return authScreen();
+  const mp = state.myProfile;
+  const input = 'w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+  return `
+  <section class="max-w-3xl mx-auto px-5 py-8 grid gap-6 pop">
+    <div class="flex items-center gap-4">${avatar({ name: u.name, tint: 0 }, 64)}
+      <div><h2 class="text-2xl font-extrabold">${esc(u.name) || 'Your account'}</h2><p class="text-slate-500">${esc(u.email)}</p></div></div>
+    <form data-form="account" class="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-4">
+      <h3 class="font-bold text-lg">Personal info</h3>
+      <label class="grid gap-1 text-sm font-semibold">Full name<input name="name" required value="${esc(u.name)}" class="${input}"></label>
+      <label class="grid gap-1 text-sm font-semibold">Phone / WhatsApp<input name="phone" inputmode="tel" value="${esc(u.phone)}" class="${input}"></label>
+      <label class="grid gap-1 text-sm font-semibold">Email<input value="${esc(u.email)}" disabled class="${input} bg-slate-50 text-slate-500"></label>
+      ${state.acct.error ? `<p class="text-sm text-red-600" role="alert">${esc(state.acct.error)}</p>` : ''}
+      <button class="justify-self-start rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold px-6 py-3 transition-colors" ${state.busy === 'acct' ? 'disabled' : ''}>${state.busy === 'acct' ? 'Saving…' : 'Save changes'}</button>
+    </form>
+    <div class="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6">
+      <h3 class="font-bold text-lg">My worker profile</h3>
+      ${mp ? `<p class="text-slate-500 text-sm mt-1 mb-4">This is how customers see you. It is linked to your account.</p>
+        <div class="max-w-sm">${workerCard({ tint: 0, rating: 5, reviews: 0, ...mp }, true)}</div>
+        <button data-action="edit-worker" class="mt-4 rounded-xl border-2 border-brand text-brand font-bold px-6 py-2.5 hover:bg-brand-soft transition-colors">Edit worker profile</button>`
+      : `<p class="text-slate-500 text-sm mt-1">You have not created a worker profile yet. Offer your services and get hired through WhatsApp.</p>
+        <button data-action="edit-worker" class="mt-4 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-6 py-2.5 transition-colors">Create worker profile</button>`}
+    </div>
+    <button data-action="signout" class="justify-self-start text-sm font-semibold text-slate-600 hover:underline">Sign out</button>
+  </section>`;
+};
 /* ---------- Helpers ---------- */
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -102,11 +200,13 @@ const header = () => `
   <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between gap-3">
       <button data-action="home" class="flex items-center gap-2 font-extrabold text-lg text-brand">
-        <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-white">${icon('message-circle', 18)}</span> ProConnect</button>
+        <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-white">${icon('message-circle', 18)}</span><span class="hidden sm:inline">ProConnect</span></button>
       <div class="inline-flex p-1 bg-slate-100 rounded-xl text-sm font-semibold">
         <button data-action="role" data-role="customer" class="px-3 sm:px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'customer' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('users', 16)}<span class="hidden sm:inline">Find a Professional</span><span class="sm:hidden">Find a Pro</span></button>
         <button data-action="role" data-role="worker" class="px-3 sm:px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'worker' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('briefcase', 16)}I'm a Worker</button>
-      </div>
+          <button data-action="auth" data-mode="login" class="w-full sm:w-auto rounded-xl border-2 ...
+<button data-action="auth" data-mode="signup" class="w-full sm:w-auto rounded-xl bg-brand ... </div>
+      <button data-action="${state.user ? 'account' : 'auth'}" data-mode="login" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline whitespace-nowrap">${state.user ? `${icon('user', 18)}<span class="hidden sm:inline">${esc((state.user.name || 'Account').split(' ')[0])}</span>` : 'Sign in'}</button>
     </div>
   </header>`;
 
@@ -206,7 +306,8 @@ const dashboard = () => {
   <section class="max-w-6xl mx-auto px-5 py-8 grid lg:grid-cols-5 gap-6 pop">
     <div class="lg:col-span-3 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6">
       <h2 class="text-2xl font-extrabold">Create your public profile</h2>
-      <p class="text-slate-500 mt-1">Customers chat with you directly on WhatsApp. No commission, no middleman.</p>
+      <p class="text-slate-500 mt-1">Customers chat with you directly on WhatsApp. No commission, no middleman.</p> 
+            ${state.user ? `<p class="text-sm text-slate-500 mt-2">Linked to your account (${esc(state.user.email)}). <button data-action="account" class="font-semibold text-brand hover:underline">View account</button></p>` : ''}
       <div class="mt-5 grid gap-4">
         <div class="inline-flex p-1 bg-slate-100 rounded-xl w-fit">
           ${['Personal', 'Business'].map((t) => `<button data-action="draft-type" data-type="${t}" class="px-4 py-2 rounded-lg text-sm font-semibold ${d.type === t ? 'bg-white shadow text-brand' : 'text-slate-500'}">${t} name</button>`).join('')}
@@ -227,8 +328,7 @@ const dashboard = () => {
         </div>
         <label class="grid gap-1 text-sm font-semibold">Years of experience<input type="number" min="0" class="${input}" data-field="draft.years" value="${esc(d.years)}"></label>
         <label class="grid gap-1 text-sm font-semibold">Short bio<textarea rows="3" class="${input}" data-field="draft.bio" placeholder="What you do best and how you work.">${esc(d.bio)}</textarea></label>
-        <button id="publish" data-action="publish" class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 inline-flex items-center justify-center gap-2 transition-colors" ${draftReady() ? '' : 'disabled'}>${icon('check', 18)} Publish profile</button>
-        <p id="hint" class="text-xs text-slate-500 -mt-2 ${draftReady() ? 'hidden' : ''}">Add your name, service area and a WhatsApp number to publish.</p>
+        <button id="publish" data-action="publish" class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 inline-flex items-center justify-center gap-2 transition-colors" ${draftReady() ? '' : 'disabled'}>${icon('check', 18)} ${state.busy === 'save' ? 'Saving…' : state.myProfile ? 'Save changes' : 'Publish profile'}</button>
       </div>
     </div>
     <aside class="lg:col-span-2"><div class="lg:sticky lg:top-20">
@@ -244,11 +344,17 @@ function render() {
   const s = state.screen;
   $('#app').innerHTML =
     (s !== 'landing' ? header() : '') +
-    (s === 'landing' ? landing() : s === 'market' ? marketplace() : s === 'profile' ? profileDetail() : dashboard());
+    (s === 'landing' ? landing() : s === 'market' ? marketplace() :s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : dashboard());
 }
 function go(screen) { state.screen = screen; render(); window.scrollTo(0, 0); }
-function setRole(r) { state.role = r; go(r === 'worker' ? 'dashboard' : 'market'); }
-
+function setRole(r) {
+  if (r === 'worker' && !state.user) {
+    state.role = 'customer';
+    state.auth = { mode: 'login', error: '', info: '', values: {}, reason: 'Sign in to create or edit your worker profile. Browsing stays open to everyone.' };
+    return go('auth');
+  }
+  state.role = r; go(r === 'worker' ? 'dashboard' : 'market');
+}
 /* ---------- Events (one listener per type, using data-attributes) ---------- */
 document.addEventListener('click', (e) => {
   if (e.target.closest('a')) return;                     // let WhatsApp / call links work normally
@@ -256,7 +362,11 @@ document.addEventListener('click', (e) => {
   const d = el.dataset;
   switch (d.action) {
     case 'skip': setRole('customer'); break;
-    case 'auth': setRole('customer'); toast('Demo only: sign-in is not connected yet. You are browsing as a guest.'); break;
+    case 'auth': state.auth = { mode: d.mode || 'login', error: '', info: '', reason: '', values: {} }; go('auth'); break;
+    case 'auth-mode': state.auth.mode = state.auth.mode === 'login' ? 'signup' : 'login'; state.auth.error = ''; render(); break;
+    case 'account': go('account'); break;
+    case 'edit-worker': setRole('worker'); break;
+    case 'signout': AUTH.signOut().catch(() => {}).finally(() => { state.user = null; state.myProfile = null; state.draft = freshDraft(); toast('Signed out.'); go('landing'); }); break;
     case 'home': go('landing'); break;
     case 'role': setRole(d.role); break;
     case 'category': state.category = state.category === d.name ? '' : d.name; updateMarket(); break;
@@ -265,11 +375,7 @@ document.addEventListener('click', (e) => {
     case 'draft-type': state.draft.type = d.type; render(); break;
     case 'draft-cat': state.draft.category = d.name; render(); break;
     case 'draft-other': state.draft.category = ''; render(); setTimeout(() => { const i = document.querySelector('[data-field="draft.category"]'); if (i) i.focus(); }); break;
-    case 'publish':
-      if (!draftReady()) return;
-      state.workers.unshift({ ...draftWorker(), id: Date.now(), tint: Math.floor(Math.random() * 6), bio: state.draft.bio || 'New on ProConnect.', years: +state.draft.years || 0 });
-      state.draft = freshDraft(); state.query = ''; state.location = ''; state.category = '';
-      setRole('customer'); toast('Published. Your profile is now in the marketplace.'); break;
+    case 'publish': saveProfile(); break;
   }
 });
 document.addEventListener('keydown', (e) => {
@@ -294,9 +400,13 @@ document.addEventListener('change', (e) => {
   }
 });
 document.addEventListener('submit', (e) => {
-  if (e.target.dataset.form !== 'landing') return;
   e.preventDefault();
-  state.query = state.landing.svc; state.location = state.landing.loc; setRole('customer');
+  const kind = e.target.dataset.form, f = Object.fromEntries(new FormData(e.target));
+  if (kind === 'landing') { state.query = state.landing.svc; state.location = state.landing.loc; setRole('customer'); }
+  if (kind === 'auth') submitAuth(f);
+  if (kind === 'account') saveAccount(f);
+});
 });
 
 render();
+AUTH.restoreSession().then(async (u) => { if (u) { await startSession(u); render(); } }).catch(() => {});
