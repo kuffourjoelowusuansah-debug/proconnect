@@ -32,7 +32,10 @@ const CATEGORIES = [
   { name: 'Plumbing', icon: 'wrench' }, { name: 'Electrical', icon: 'zap' },
   { name: 'Carpentry', icon: 'hammer' }, { name: 'Painting', icon: 'paint-bucket' },
   { name: 'Masonry', icon: 'layers' },
+ 
 ];
+const CAT_IDEAS = ['Graphic Design', 'Video Editing', 'Photography', 'Web Development', 'Tailoring', 'Hairdressing', 'Welding', 'Tiling', 'Cleaning', 'Mechanic', 'Catering', 'DJ & Music'];
+const isOther = (d) => !CATEGORIES.some((c) => c.name === d.category);
 const TINTS = [['#1F3A5F', '#3B6FB6'], ['#0F766E', '#34D399'], ['#9A3412', '#FB923C'], ['#6D28D9', '#A78BFA'], ['#BE123C', '#FB7185'], ['#0369A1', '#38BDF8']];
 const SEED = [
   { id: 1, name: 'Kwame Mensah', type: 'Personal', category: 'Plumbing', area: 'Kumasi – Ahodwo', rating: 4.9, reviews: 128, years: 12, verified: true, phone: '0244000001', tint: 0, bio: 'Burst pipes, leaking taps, water tank installs and bathroom fittings. I show up on time and clean up after the job.' },
@@ -58,7 +61,7 @@ const state = { screen: 'landing', role: 'customer', selected: null, query: '', 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const toWa = (p) => { let d = (p || '').replace(/\D/g, ''); if (d.startsWith('0')) d = '233' + d.slice(1); return d; };
-const catIcon = (name) => (CATEGORIES.find((c) => c.name === name) || CATEGORIES[0]).icon;
+const catIcon = (name) => (CATEGORIES.find((c) => c.name === name) || { icon: 'briefcase' }).icon;
 let toastTimer;
 const toast = (msg) => {
   const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
@@ -135,10 +138,13 @@ const filtered = () => state.workers.filter((w) =>
   (!state.query || (w.name + w.category + w.bio).toLowerCase().includes(state.query.toLowerCase())) &&
   (!state.location || w.area.toLowerCase().includes(state.location.toLowerCase())));
 
-const tilesHTML = () => CATEGORIES.map(({ name, icon: ic }) => {
-  const on = state.category === name;
-  return `<button data-action="category" data-name="${name}" class="rounded-2xl border p-4 flex flex-col items-center gap-2 font-semibold transition ${on ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200 hover:border-brand/40'}"><span class="grid place-items-center w-11 h-11 rounded-xl ${on ? 'bg-white/15' : 'bg-brand-soft text-brand'}">${icon(ic, 22)}</span>${name}</button>`;
-}).join('');
+const tilesHTML = () => {
+  const extra = [...new Set(state.workers.map((w) => w.category))].filter((c) => c && !CATEGORIES.some((k) => k.name === c));
+  return [...CATEGORIES, ...extra.map((name) => ({ name, icon: 'briefcase' }))].map(({ name, icon: ic }) => {
+    const on = state.category === name;
+    return `<button data-action="category" data-name="${esc(name)}" class="rounded-2xl border p-4 flex flex-col items-center gap-2 font-semibold transition ${on ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200 hover:border-brand/40'}"><span class="grid place-items-center w-11 h-11 rounded-xl ${on ? 'bg-white/15' : 'bg-brand-soft text-brand'}">${icon(ic, 22)}</span>${esc(name)}</button>`;
+  }).join('');
+};
 
 const resultsHTML = () => {
   const list = filtered();
@@ -162,7 +168,7 @@ const marketplace = () => `
 
 const profileDetail = () => {
   const w = state.selected; const [a, b] = TINTS[w.tint % TINTS.length]; const ic = catIcon(w.category);
-  const tiles = PORTFOLIO[w.category].map((t, i) => {
+  const tiles = (PORTFOLIO[w.category] || ['Project 1', 'Project 2', 'Project 3', 'Project 4', 'Project 5', 'Project 6']).map((t, i) => {
     const [c1, c2] = TINTS[(w.tint + i) % TINTS.length];
     return `<figure class="relative aspect-[4/3] rounded-2xl overflow-hidden text-white" style="background:linear-gradient(135deg,${c1},${c2})">${icon(ic, 54, 'absolute -right-2 -bottom-2 opacity-20')}<figcaption class="absolute left-3 bottom-3 right-3 text-sm font-semibold drop-shadow">${t}</figcaption></figure>`;
   }).join('');
@@ -210,9 +216,11 @@ const dashboard = () => {
         <div class="flex items-center gap-4">${avatar(draftWorker(), 72)}
           <label class="cursor-pointer inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-400 px-4 py-2.5 text-sm font-semibold hover:bg-slate-50">${icon('upload', 18)} Upload photo
             <input type="file" accept="image/*" data-file="photo" class="hidden"></label></div>
-        <div><div class="text-sm font-semibold mb-2">Category</div><div class="flex flex-wrap gap-2">
+                <div><div class="text-sm font-semibold mb-2">Category</div><div class="flex flex-wrap gap-2">
           ${CATEGORIES.map(({ name, icon: ic }) => `<button data-action="draft-cat" data-name="${name}" class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold border ${d.category === name ? 'bg-brand text-white border-brand' : 'border-slate-300 hover:border-brand/50'}">${icon(ic, 15)}${name}</button>`).join('')}
-        </div></div>
+          <button data-action="draft-other" class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold border ${isOther(d) ? 'bg-brand text-white border-brand' : 'border-slate-300 hover:border-brand/50'}">${icon('briefcase', 15)}Other</button>
+        </div>
+        ${isOther(d) ? `<input data-field="draft.category" value="${esc(d.category)}" maxlength="40" list="cat-ideas" placeholder="Type your category, e.g. Graphic Designer" class="${input} mt-3"><datalist id="cat-ideas">${CAT_IDEAS.map((c) => `<option value="${c}">`).join('')}</datalist>` : ''}</div>>
         <div class="grid sm:grid-cols-2 gap-4">
           <label class="grid gap-1 text-sm font-semibold">Service area<input class="${input}" data-field="draft.area" value="${esc(d.area)}" placeholder="e.g. Kumasi – Ahodwo"></label>
           <label class="grid gap-1 text-sm font-semibold">WhatsApp number<input class="${input}" inputmode="tel" data-field="draft.phone" value="${esc(d.phone)}" placeholder="024 000 0000"></label>
@@ -256,6 +264,7 @@ document.addEventListener('click', (e) => {
     case 'back': go('market'); break;
     case 'draft-type': state.draft.type = d.type; render(); break;
     case 'draft-cat': state.draft.category = d.name; render(); break;
+    case 'draft-other': state.draft.category = ''; render(); setTimeout(() => { const i = document.querySelector('[data-field="draft.category"]'); if (i) i.focus(); }); break;
     case 'publish':
       if (!draftReady()) return;
       state.workers.unshift({ ...draftWorker(), id: Date.now(), tint: Math.floor(Math.random() * 6), bio: state.draft.bio || 'New on ProConnect.', years: +state.draft.years || 0 });
