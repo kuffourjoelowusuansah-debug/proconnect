@@ -202,14 +202,11 @@ const header = () => `
       <button data-action="home" class="flex items-center gap-2 font-extrabold text-lg text-brand">
         <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-white">${icon('message-circle', 18)}</span><span class="hidden sm:inline">ProConnect</span></button>
       <div class="inline-flex p-1 bg-slate-100 rounded-xl text-sm font-semibold">
-        <button data-action="role" data-role="customer" class="px-3 sm:px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'customer' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('users', 16)}<span class="hidden sm:inline">Find a Professional</span><span class="sm:hidden">Find a Pro</span></button>
-        <button data-action="role" data-role="worker" class="px-3 sm:px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'worker' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('briefcase', 16)}I'm a Worker</button>
-          <button data-action="auth" data-mode="login" class="w-full sm:w-auto rounded-xl border-2 ...
-<button data-action="auth" data-mode="signup" class="w-full sm:w-auto rounded-xl bg-brand ... </div>
+               <button data-action="role" data-role="worker" class="px-3 sm:px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'worker' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('briefcase', 16)}I'm a Worker</button>
+      </div>
       <button data-action="${state.user ? 'account' : 'auth'}" data-mode="login" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline whitespace-nowrap">${state.user ? `${icon('user', 18)}<span class="hidden sm:inline">${esc((state.user.name || 'Account').split(' ')[0])}</span>` : 'Sign in'}</button>
     </div>
   </header>`;
-
 const landing = () => `
   <section class="max-w-5xl mx-auto px-5 pt-14 pb-20 text-center pop">
     ${badge('Every pro is reachable on WhatsApp in one tap', 'shield-check', 'green')}
@@ -224,9 +221,8 @@ const landing = () => `
     </form>
     <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
       <button data-action="skip" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold px-8 py-4 text-lg shadow-lg shadow-emerald-200 transition-colors">${icon('sparkles', 20)} Skip Login &amp; Explore</button>
-      <button data-action="auth" class="w-full sm:w-auto rounded-xl border-2 border-brand text-brand font-bold px-8 py-3.5 hover:bg-brand-soft transition-colors">Log in</button>
-      <button data-action="auth" class="w-full sm:w-auto rounded-xl bg-brand text-white font-bold px-8 py-3.5 hover:bg-brand-dark transition-colors">Sign up</button>
-    </div>
+          <button data-action="auth" data-mode="login" class="w-full sm:w-auto rounded-xl border-2 border-brand text-brand font-bold px-8 py-3.5 hover:bg-brand-soft transition-colors">Log in</button>
+      <button data-action="auth" data-mode="signup" class="w-full sm:w-auto rounded-xl bg-brand text-white font-bold px-8 py-3.5 hover:bg-brand-dark transition-colors">Sign up</button></div>
     <p class="mt-4 text-sm text-slate-500">Browsing as a guest takes zero details. You can sign up whenever you like.</p>
     <div class="mt-14 grid grid-cols-3 gap-3 max-w-2xl mx-auto">
       ${[['1,200+', 'Verified pros'], ['4.8', 'Average rating'], ['< 5 min', 'To first reply']].map(([n, l]) => `<div class="bg-white rounded-2xl border border-slate-200 py-4"><div class="text-2xl font-extrabold text-brand">${esc(n)}</div><div class="text-xs sm:text-sm text-slate-500">${l}</div></div>`).join('')}
