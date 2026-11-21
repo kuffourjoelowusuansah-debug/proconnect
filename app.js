@@ -228,42 +228,62 @@ const bottomNav = () => {
 };
 const landing = () => `
   <div class="hero-bg">
-  <section class="max-w-5xl mx-auto px-5 pt-14 pb-14 text-center pop">
-    ${badge('Every pro is reachable on WhatsApp in one tap', 'shield-check', 'green')}
-    <h1 class="mt-5 text-4xl sm:text-6xl font-extrabold text-ink leading-[1.05]">Find trusted local experts<br class="hidden sm:block"> or <span class="hl">get hired instantly.</span></h1>
-    <p class="mt-5 text-lg text-slate-600 max-w-xl mx-auto">Plumbers, electricians, carpenters, designers and more near you. No forms, no waiting. Just chat and agree on the job.</p>
-    <form data-form="landing" class="mt-9 mx-auto max-w-3xl bg-white rounded-2xl shadow-lg border border-slate-200 p-2 flex flex-col sm:flex-row gap-2 text-left">
-      <label class="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50">${icon('search', 20, 'text-brand')}
-        <input data-field="landing.svc" value="${esc(state.landing.svc)}" placeholder="What do you need? e.g. plumber" class="w-full bg-transparent outline-none placeholder:text-slate-400"></label>
-      <label class="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 sm:border-l border-slate-200">${icon('map-pin', 20, 'text-brand')}
-        <input data-field="landing.loc" value="${esc(state.landing.loc)}" placeholder="Location e.g. Kumasi" class="w-full bg-transparent outline-none placeholder:text-slate-400"></label>
-      <button class="rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-7 py-3 transition-colors">Search</button>
-    </form>
-    <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-      <button data-action="skip" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold px-8 py-4 text-lg shadow-lg shadow-emerald-200 transition-colors">${icon('sparkles', 20)} Skip Login &amp; Explore</button>
-      <button data-action="auth" data-mode="login" class="w-full sm:w-auto rounded-xl border-2 border-brand text-brand font-bold px-8 py-3.5 hover:bg-brand-soft transition-colors">Log in</button>
-      <button data-action="auth" data-mode="signup" class="w-full sm:w-auto rounded-xl bg-brand text-white font-bold px-8 py-3.5 hover:bg-brand-dark transition-colors">Sign up</button>
+  <section class="max-w-6xl mx-auto px-5 pt-12 pb-12 pop">
+    <div class="grid lg:grid-cols-2 gap-10 items-center">
+      <div class="text-center lg:text-left">
+        ${badge('Every pro is reachable on WhatsApp in one tap', 'shield-check', 'green')}
+        <h1 class="mt-5 text-4xl sm:text-5xl lg:text-6xl font-extrabold text-ink leading-[1.05]">Find trusted local experts or <span class="hl">get hired instantly.</span></h1>
+        <p class="mt-5 text-lg text-slate-600 max-w-xl mx-auto lg:mx-0">Plumbers, electricians, carpenters, designers and more near you. No forms, no waiting. Just chat and agree on the job.</p>
+        <form data-form="landing" class="mt-8 max-w-xl mx-auto lg:mx-0 bg-white rounded-2xl shadow-lg border border-slate-200 p-2 flex flex-col sm:flex-row gap-2 text-left">
+          <label class="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50">${icon('search', 20, 'text-brand')}
+            <input data-field="landing.svc" value="${esc(state.landing.svc)}" placeholder="What do you need? e.g. plumber" class="w-full bg-transparent outline-none placeholder:text-slate-400"></label>
+          <label class="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50 sm:border-l border-slate-200">${icon('map-pin', 20, 'text-brand')}
+            <input data-field="landing.loc" value="${esc(state.landing.loc)}" placeholder="Location e.g. Kumasi" class="w-full bg-transparent outline-none placeholder:text-slate-400"></label>
+          <button class="rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-7 py-3 transition-colors">Search</button>
+        </form>
+        <div class="mt-6 flex flex-col sm:flex-row flex-wrap items-center justify-center lg:justify-start gap-3">
+          <button data-action="skip" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold px-8 py-4 text-lg shadow-lg shadow-emerald-200 transition-colors">${icon('sparkles', 20)} Skip Login &amp; Explore</button>
+          <button data-action="auth" data-mode="login" class="w-full sm:w-auto rounded-xl border-2 border-brand text-brand font-bold px-8 py-3.5 hover:bg-brand-soft transition-colors">Log in</button>
+          <button data-action="auth" data-mode="signup" class="w-full sm:w-auto rounded-xl bg-brand text-white font-bold px-8 py-3.5 hover:bg-brand-dark transition-colors">Sign up</button>
+        </div>
+        <p class="mt-4 text-sm text-slate-500">Browsing as a guest takes zero details. You can sign up whenever you like.</p>
+      </div>
+      <div class="bob">${phoneMock()}<p class="mt-5 text-center text-xs text-slate-400">Sample conversation</p></div>
     </div>
-    <p class="mt-4 text-sm text-slate-500">Browsing as a guest takes zero details. You can sign up whenever you like.</p>
     <div class="mt-12 grid grid-cols-3 gap-3 max-w-2xl mx-auto">
-      ${[['1,200+', 'Verified pros'], ['4.8', 'Average rating'], ['< 5 min', 'To first reply']].map(([n, l]) => `<div class="bg-white/80 rounded-2xl border border-slate-200 py-4"><div class="text-2xl font-extrabold text-brand">${esc(n)}</div><div class="text-xs sm:text-sm text-slate-500">${l}</div></div>`).join('')}
+      ${[['1,200+', 'Verified pros'], ['4.8', 'Average rating'], ['< 5 min', 'To first reply']].map(([n, l]) => `<div class="bg-white/80 rounded-2xl border border-slate-200 py-4 text-center"><div class="text-2xl font-extrabold text-brand">${esc(n)}</div><div class="text-xs sm:text-sm text-slate-500">${l}</div></div>`).join('')}
     </div>
   </section></div>
 
-  <section class="max-w-5xl mx-auto px-5 py-12">
-    <h2 class="text-2xl sm:text-3xl font-extrabold text-center">How it works</h2>
+  <section class="reveal max-w-5xl mx-auto px-5 py-12">
+    <p class="text-center text-xs font-bold tracking-widest text-amber-rate uppercase">Simple by design</p>
+    <h2 class="mt-2 text-2xl sm:text-3xl font-extrabold text-center">How it works</h2>
     <div class="mt-8 grid sm:grid-cols-3 gap-4">
       ${[['search', 'Search', 'Pick a trade and your area.'], ['message-circle', 'Chat on WhatsApp', 'Message the pro directly. No sign-up needed.'], ['check', 'Get it done', 'Agree on the job and the price together.']].map(([ic, t, d], i) => `<div class="card-lift bg-white rounded-2xl border border-slate-200 p-6"><span class="grid place-items-center w-11 h-11 rounded-xl bg-brand-soft text-brand">${icon(ic, 22)}</span><div class="mt-4 text-xs font-bold text-amber-rate">STEP ${i + 1}</div><h3 class="mt-1 text-lg font-bold">${t}</h3><p class="mt-1 text-slate-500 text-sm">${d}</p></div>`).join('')}
     </div>
   </section>
 
-  ${state.workers.length ? `<section class="max-w-6xl mx-auto px-5 pb-12">
+  ${state.workers.length ? `<section class="reveal max-w-6xl mx-auto px-5 pb-12">
     <div class="flex items-end justify-between"><h2 class="text-2xl sm:text-3xl font-extrabold">Top-rated pros</h2><button data-action="skip" class="text-sm font-semibold text-brand hover:underline">See all</button></div>
     <div class="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${state.workers.slice(0, 3).map((w) => workerCard(w)).join('')}</div>
   </section>` : ''}
 
-  <section class="max-w-5xl mx-auto px-5 pb-16">
-    <div class="rounded-3xl bg-brand text-white p-8 sm:p-10 flex flex-col sm:flex-row items-center justify-between gap-5">
+  <section class="reveal max-w-3xl mx-auto px-5 pb-14">
+    <p class="text-center text-xs font-bold tracking-widest text-amber-rate uppercase">Good to know</p>
+    <h2 class="mt-2 text-2xl sm:text-3xl font-extrabold text-center">Frequently asked questions</h2>
+    <div class="mt-8 grid gap-3">
+      ${[['Do I need an account to find a pro?', 'No. You can browse, open profiles and chat on WhatsApp as a guest. An account is only needed if you want to offer your services.'],
+         ['How do I contact a professional?', 'Tap Chat on WhatsApp on any profile. WhatsApp opens with a ready message, and you talk to the pro directly. You can also send a short job brief first.'],
+         ['Does ProConnect take a commission?', 'No. You and the professional agree the job and the price between yourselves.'],
+         ['What does the Verified badge mean?', 'Pros with the Verified badge have had their details checked by us. Always agree the price and the work before it starts.'],
+         ['I am a tradesperson or creative. How do I join?', 'Tap I am a Worker, sign in, and create your free profile. Choose one of the main categories or type your own, such as Graphic Design or Video Editing.'],
+         ['Is payment handled on ProConnect?', 'Not yet. Agree on payment directly with the pro, and keep your chat on WhatsApp as a record of what was agreed.']]
+        .map(([q, a]) => `<details class="faq bg-white rounded-2xl border border-slate-200 hover:border-brand/40 px-5 py-4"><summary class="flex items-center justify-between gap-4 cursor-pointer font-semibold list-none">${q}<span class="faq-plus shrink-0">+</span></summary><p class="mt-3 text-slate-600 text-sm leading-relaxed">${a}</p></details>`).join('')}
+    </div>
+  </section>
+
+  <section class="reveal max-w-5xl mx-auto px-5 pb-16">
+    <div class="band rounded-3xl text-white p-8 sm:p-10 flex flex-col sm:flex-row items-center justify-between gap-5">
       <div><h2 class="text-2xl sm:text-3xl font-extrabold">Are you a pro? Get hired on WhatsApp.</h2>
         <p class="mt-1 text-white/80">Create a free profile in minutes. Plumbers, electricians, designers, video editors and more.</p></div>
       <button data-action="role" data-role="worker" class="shrink-0 rounded-xl bg-amber-rate hover:brightness-95 text-ink font-bold px-7 py-3.5 transition">Join as a worker</button>
@@ -326,6 +346,7 @@ const profileDetail = () => {
           <div class="rounded-2xl bg-slate-50 py-3"><div class="font-extrabold text-lg flex justify-center items-center gap-1">${icon('clock', 16)}&lt;5m</div><div class="text-xs text-slate-500">Reply time</div></div>
         </div>
         <h3 class="mt-6 font-bold">About</h3><p class="mt-1 text-slate-600 leading-relaxed">${esc(w.bio)}</p>
+        <div class="mt-6 rounded-2xl bg-brand-soft p-4 flex items-center justify-between gap-3"><div><div class="font-bold text-brand">Not sure what to say?</div><div class="text-sm text-slate-600">Describe your job in 20 seconds. We write the WhatsApp message for you.</div></div><button data-action="brief" class="shrink-0 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-sm transition-colors">Send job brief</button></div>
         <h3 class="mt-6 font-bold">Portfolio</h3><div class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3">${tiles}</div>
         <p class="mt-2 text-xs text-slate-400">Prototype tiles. Real photos will appear here once workers upload them.</p>
       </div>
@@ -379,14 +400,75 @@ const dashboard = () => {
   </section>`;
 };
 
+/* ---------- Hero chat mockup, scroll reveal, Job Brief ---------- */
+const phoneMock = () => `
+  <div class="phone mx-auto">
+    <div class="flex items-center gap-3 bg-[#075E54] text-white px-4 pt-5 pb-3">
+      <span class="w-9 h-9 rounded-full grid place-items-center bg-white/20 font-bold">K</span>
+      <div class="leading-tight"><div class="font-semibold text-sm flex items-center gap-1">Kwame Mensah ${icon('badge-check', 14)}</div><div class="text-xs text-white/70">Plumber · online</div></div>
+    </div>
+    <div id="chat" class="chat-bg p-3 flex flex-col gap-2 text-[13px] h-[21rem] justify-end">
+      ${[['out', 'Hi Kwame, my kitchen tap is leaking badly. Can you come today?', '10:02'], ['in', 'Hello! Yes, I can be there by 3pm. Which area are you in?', '10:03'], ['out', 'Ahodwo, Kumasi. Can you send a quote?', '10:03'], ['in', 'Inspection is free. Most tap repairs are quick. See you at 3.', '10:04']]
+        .map(([d, t, time]) => `<div class="msg ${d === 'out' ? 'self-end bg-[#DCF8C6]' : 'self-start bg-white'} rounded-xl px-3 py-2 max-w-[82%] shadow-sm">${t}<span class="block text-[10px] text-slate-400 text-right mt-0.5">${time}</span></div>`).join('')}
+    </div>
+    <div class="bg-slate-100 px-3 py-2 text-xs text-slate-400">Type a message</div>
+  </div>`;
+
+let chatTimer;
+function runChat() {
+  clearTimeout(chatTimer);
+  const msgs = [...document.querySelectorAll('#chat .msg')]; if (!msgs.length) return;
+  msgs.forEach((m) => m.classList.remove('show'));
+  let i = 0;
+  const next = () => {
+    if (!document.body.contains(msgs[0])) return;
+    if (i < msgs.length) { msgs[i++].classList.add('show'); chatTimer = setTimeout(next, 1400); }
+    else chatTimer = setTimeout(runChat, 5000);
+  };
+  chatTimer = setTimeout(next, 500);
+}
+function afterRender() {
+  document.documentElement.classList.add('js');
+  const items = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.1 });
+    items.forEach((el) => io.observe(el));
+  } else items.forEach((el) => el.classList.add('in'));
+  if (state.screen === 'landing') runChat();
+}
+
+const BRIEF_KINDS = ['Fix a problem', 'New work', 'Just a quote'], BRIEF_WHEN = ['Today', 'This week', 'Flexible'];
+const briefText = (w, b) => `Hi ${w.name}, I found you on ProConnect.\n\nJob: ${b.kind} (${w.category})\nWhen: ${b.when}\nLocation: ${b.area || 'to be confirmed'}${b.note ? `\nDetails: ${b.note}` : ''}\n\nCan you help, and roughly what would it cost?`;
+const briefLink = (w, b) => `https://wa.me/${toWa(w.phone)}?text=${encodeURIComponent(briefText(w, b))}`;
+const updateBrief = () => { $('#brief-preview').textContent = briefText(state.selected, state.brief); $('#brief-send').href = briefLink(state.selected, state.brief); };
+const briefSheet = () => {
+  const b = state.brief, w = state.selected; if (!b || state.screen !== 'profile' || !w) return '';
+  const chips = (list, val, action) => list.map((v) => `<button data-action="${action}" data-v="${v}" class="rounded-full px-3.5 py-2 text-sm font-semibold border ${val === v ? 'bg-brand text-white border-brand' : 'border-slate-300 hover:border-brand/50'}">${v}</button>`).join('');
+  const input = 'w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+  return `
+  <div data-action="brief-close" class="fixed inset-0 z-40 bg-black/40 flex items-end sm:items-center justify-center sm:p-4">
+    <div data-action="noop" class="pop bg-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-start justify-between gap-3"><div><h3 class="text-xl font-extrabold">Send a job brief</h3><p class="text-sm text-slate-500">to ${esc(w.name)}. Takes 20 seconds.</p></div><button data-action="brief-close" aria-label="Close" class="w-9 h-9 rounded-full bg-slate-100 text-lg font-bold">×</button></div>
+      <div class="mt-5 grid gap-4">
+        <div><div class="text-sm font-semibold mb-2">What do you need?</div><div class="flex flex-wrap gap-2">${chips(BRIEF_KINDS, b.kind, 'brief-kind')}</div></div>
+        <div><div class="text-sm font-semibold mb-2">When?</div><div class="flex flex-wrap gap-2">${chips(BRIEF_WHEN, b.when, 'brief-when')}</div></div>
+        <label class="grid gap-1 text-sm font-semibold">Where is the job?<input data-field="brief.area" value="${esc(b.area)}" placeholder="e.g. Ahodwo, Kumasi" class="${input}"></label>
+        <label class="grid gap-1 text-sm font-semibold">Details (optional)<textarea rows="3" data-field="brief.note" placeholder="Tell them what is wrong or what you want." class="${input}">${esc(b.note)}</textarea></label>
+        <div><div class="text-xs font-semibold text-slate-500 mb-1">Preview of your WhatsApp message</div><div id="brief-preview" class="whitespace-pre-line text-sm bg-[#DCF8C6] rounded-2xl rounded-tr-sm p-3">${esc(briefText(w, b))}</div></div>
+        <a id="brief-send" href="${briefLink(w, b)}" target="_blank" rel="noopener noreferrer" class="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold py-3.5 transition-colors">${icon('message-circle', 20)} Send on WhatsApp</a>
+      </div>
+    </div>
+  </div>`;
+};
 /* ---------- Render ---------- */
 function render() {
   const s = state.screen;
   $('#app').innerHTML =
     (s !== 'landing' ? header() : '') +
-    (s === 'landing' ? landing() : s === 'market' ? marketplace() :s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : dashboard()) + bottomNav();
+    (s === 'landing' ? landing() : s === 'market' ? marketplace() : s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : dashboard()) + bottomNav() + briefSheet();
+  afterRender();
 }
- function go(screen) { state.screen = screen; render(); window.scrollTo(0, 0); }
+function go(screen) { state.brief = null; state.screen = screen; render(); window.scrollTo(0, 0); } 
 function setRole(r) {
   if (r === 'worker' && !state.user) {
     state.role = 'customer';
@@ -416,16 +498,23 @@ document.addEventListener('click', (e) => {
     case 'draft-cat': state.draft.category = d.name; render(); break;
     case 'draft-other': state.draft.category = ''; render(); setTimeout(() => { const i = document.querySelector('[data-field="draft.category"]'); if (i) i.focus(); }); break;
     case 'publish': saveProfile(); break;
+    case 'brief': state.brief = { kind: BRIEF_KINDS[0], when: BRIEF_WHEN[0], area: state.location || '', note: '' }; render(); break;
+    case 'brief-close': state.brief = null; render(); break;
+    case 'brief-kind': state.brief.kind = d.v; render(); break;
+    case 'brief-when': state.brief.when = d.v; render(); break;
+    case 'noop': break;
   }
 });
 document.addEventListener('keydown', (e) => {
-  const el = e.target.closest && e.target.closest('[data-action="open"]');
+    if (e.key === 'Escape' && state.brief) { state.brief = null; render(); return; }
+ const el = e.target.closest && e.target.closest('[data-action="open"]');
   if (el && e.key === 'Enter') el.click();
 });
 document.addEventListener('input', (e) => {
   const f = e.target.dataset && e.target.dataset.field; if (!f) return;
   const v = e.target.value;
   if (f === 'query' || f === 'location') { state[f] = v; updateMarket(); }
+  else if (f.startsWith('brief.')) { state.brief[f.split('.')[1]] = v; updateBrief(); }
   else if (f.startsWith('landing.')) state.landing[f.split('.')[1]] = v;
   else if (f.startsWith('draft.')) {
     state.draft[f.split('.')[1]] = v;
