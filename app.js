@@ -36,6 +36,11 @@ const ICONS = {
  "eye": "<path d=\"M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />",
  "shield-check": "<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\" /> <path d=\"m9 12 2 2 4-4\" />",
  "share-2": "<circle cx=\"18\" cy=\"5\" r=\"3\" /> <circle cx=\"6\" cy=\"12\" r=\"3\" /> <circle cx=\"18\" cy=\"19\" r=\"3\" /> <line x1=\"8.59\" x2=\"15.42\" y1=\"13.51\" y2=\"17.49\" /> <line x1=\"15.41\" x2=\"8.59\" y1=\"6.51\" y2=\"10.49\" />",
+ "heart": "<path d=\"M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z\" />",
+ "lock": "<rect width=\"18\" height=\"11\" x=\"3\" y=\"11\" rx=\"2\" ry=\"2\" /> <path d=\"M7 11V7a5 5 0 0 1 10 0v4\" />",
+ "server": "<rect width=\"20\" height=\"8\" x=\"2\" y=\"2\" rx=\"2\" ry=\"2\" /> <rect width=\"20\" height=\"8\" x=\"2\" y=\"14\" rx=\"2\" ry=\"2\" /> <line x1=\"6\" x2=\"6.01\" y1=\"6\" y2=\"6\" /> <line x1=\"6\" x2=\"6.01\" y1=\"18\" y2=\"18\" />",
+ "code": "<polyline points=\"16 18 22 12 16 6\" /> <polyline points=\"8 6 2 12 8 18\" />",
+ "life-buoy": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"m4.93 4.93 4.24 4.24\" /> <path d=\"m14.83 9.17 4.24-4.24\" /> <path d=\"m14.83 14.83 4.24 4.24\" /> <path d=\"m9.17 14.83-4.24 4.24\" /> <circle cx=\"12\" cy=\"12\" r=\"4\" />",
  "sparkles": "<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" /> <path d=\"M4 17v2\" /> <path d=\"M5 18H3\" />"
 };
 
@@ -229,7 +234,10 @@ const header = () => `
         <button data-action="role" data-role="customer" class="px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'customer' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('users', 16)}Find a Professional</button>
         <button data-action="role" data-role="worker" class="px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'worker' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('briefcase', 16)}I'm a Worker</button>
       </div>
-      <button data-action="${state.user ? 'account' : 'auth'}" data-mode="login" class="hidden md:inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline whitespace-nowrap">${state.user ? `${icon('user', 18)}${esc((state.user.name || 'Account').split(' ')[0])}` : 'Sign in'}</button>
+      <div class="flex items-center gap-4">
+        <button data-action="${state.user ? 'account' : 'auth'}" data-mode="login" class="hidden md:inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline whitespace-nowrap">${state.user ? `${icon('user', 18)}${esc((state.user.name || 'Account').split(' ')[0])}` : 'Sign in'}</button>
+        <button data-action="donate" class="inline-flex items-center gap-1.5 rounded-full bg-amber-rate hover:brightness-95 text-ink font-bold text-sm px-4 py-2 transition">${icon('heart', 16)}Donate</button>
+      </div>
     </div>
   </header>`;
 
@@ -311,7 +319,7 @@ const landing = () => `
   <footer class="band text-white">
     <div class="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
       <div class="flex items-center gap-3"><img src="logo-white.png" alt="ProConnect" class="h-12 w-auto" onerror="this.style.display='none'"><div><div class="font-extrabold text-lg">ProConnect</div><div class="text-sm text-white/70">Find trusted local experts</div></div></div>
-      <div class="text-sm text-white/70"><button data-action="terms" class="underline hover:text-white">Terms of Service</button><p class="mt-1">ProConnect is free for now. We only connect you to professionals.</p></div>
+      <div class="text-sm text-white/70"><button data-action="donate" class="inline-flex items-center gap-1.5 rounded-full bg-amber-rate hover:brightness-95 text-ink font-bold px-4 py-2 transition">${icon('heart', 16)}Donate</button><p class="mt-3"><button data-action="terms" class="underline hover:text-white">Terms of Service</button></p><p class="mt-1">ProConnect is free for now. We only connect you to professionals.</p></div>
     </div>
   </footer>`;
 
@@ -571,15 +579,154 @@ const termsScreen = () => `
     </article>
   </section>`;
 
+/* ---------- Donations: page, thank-you, popup, Paystack hand-off ---------- */
+const DONATE = { chance: 0.3, delayMs: 15000, snoozeDays: 14, afterDonationDays: 60, min: 5, presets: [10, 20, 50, 100, 200] };
+/* Paste your Paystack PUBLIC key here (starts with pk_test_ or pk_live_). Never put the secret key in this file. */
+const PAYSTACK_PUBLIC_KEY = '';
+const VERSES = {
+  give: { text: 'Every man according as he purposeth in his heart, so let him give; not grudgingly, or of necessity: for God loveth a cheerful giver.', ref: '2 Corinthians 9:7' },
+  thanks: [
+    { text: 'Give, and it shall be given unto you; good measure, pressed down, and shaken together, and running over, shall men give into your bosom.', ref: 'Luke 6:38' },
+    { text: 'It is more blessed to give than to receive.', ref: 'Acts 20:35' },
+    { text: 'But my God shall supply all your need according to his riches in glory by Christ Jesus.', ref: 'Philippians 4:19' },
+  ],
+};
+const freshDonate = () => ({ amount: 50, custom: '', name: '', email: '', error: '', info: '' });
+Object.assign(state, { donate: freshDonate(), donation: null });
+const money = (n) => 'GH₵' + Number(n).toLocaleString('en-GH', { maximumFractionDigits: 2 });
+const donateAmount = () => (state.donate.custom !== '' ? Number(state.donate.custom) || 0 : state.donate.amount);
+
+const loadPaystack = () => window.PaystackPop ? Promise.resolve() : new Promise((res, rej) => {
+  const s = document.createElement('script'); s.src = 'https://js.paystack.co/v2/inline.js'; s.onload = res;
+  s.onerror = () => rej(new Error('Could not load Paystack. Please check your internet connection.')); document.head.appendChild(s);
+});
+const PAY = {
+  /* Resolves { reference } when the payment succeeds. Rejects with CANCELLED, NOT_CONNECTED or an error message.
+     IMPORTANT: confirm every payment on a server with Paystack's "verify transaction" API before you count it. */
+  start: async ({ amount, email, name }) => {
+    if (!PAYSTACK_PUBLIC_KEY) throw new Error('NOT_CONNECTED');
+    await loadPaystack();
+    return new Promise((resolve, reject) => {
+      const o = { key: PAYSTACK_PUBLIC_KEY, email, amount: Math.round(amount * 100), currency: 'GHS',
+        onSuccess: (tx) => resolve({ reference: tx.reference || tx.trxref }),
+        onCancel: () => reject(new Error('CANCELLED')),
+        onError: (err) => reject(new Error((err && err.message) || 'The payment could not be completed.')) };
+      if (name) o.firstName = name.split(' ')[0];
+      new window.PaystackPop().newTransaction(o);
+    });
+  },
+};
+
+const snooze = (days) => { try { localStorage.setItem('pc_pop_until', String(Date.now() + days * 864e5)); } catch (e) {} };
+function removeDonatePopup() { const p = document.getElementById('donate-pop'); if (p) p.remove(); }
+function showDonatePopup() {
+  if (document.getElementById('donate-pop')) return;
+  document.body.insertAdjacentHTML('beforeend', `
+  <div id="donate-pop" role="dialog" aria-label="Support ProConnect" class="pop fixed z-30 left-4 right-4 bottom-24 md:left-auto md:right-6 md:bottom-6 md:w-[22rem] bg-white rounded-2xl border border-slate-200 shadow-2xl p-4">
+    <button data-action="donate-later" aria-label="Close" class="absolute top-2 right-3 text-xl text-slate-400 hover:text-slate-600">×</button>
+    <div class="flex items-start gap-3">
+      <span class="grid place-items-center w-10 h-10 rounded-xl bg-amber-rate text-ink shrink-0">${icon('heart', 20)}</span>
+      <div><div class="font-bold">Keep ProConnect free</div>
+        <p class="mt-1 text-sm text-slate-600">If ProConnect helped you, a small gift keeps it running for everyone.</p>
+        <p class="mt-2 text-xs italic text-slate-400">“God loveth a cheerful giver.” · ${esc(VERSES.give.ref)}</p></div>
+    </div>
+    <div class="mt-3 flex gap-2"><button data-action="donate" class="flex-1 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold py-2.5 text-sm transition-colors">Donate</button><button data-action="donate-later" class="rounded-xl border border-slate-200 text-slate-600 font-semibold px-4 py-2.5 text-sm hover:bg-slate-50">Maybe later</button></div>
+  </div>`);
+}
+/* Shows on about 3 in 10 visits, once per visit, 15 seconds in, and never twice within 14 days (60 days after a donation). */
+function scheduleDonatePopup() {
+  try {
+    if (sessionStorage.getItem('pc_pop_rolled')) return;
+    sessionStorage.setItem('pc_pop_rolled', '1');
+    if (Date.now() < (+localStorage.getItem('pc_pop_until') || 0)) return;
+    if (Math.random() >= DONATE.chance) return;
+  } catch (e) { return; }
+  setTimeout(() => { if (['landing', 'market'].includes(state.screen) && !state.brief) showDonatePopup(); }, DONATE.delayMs);
+}
+
+const paintDonate = () => {
+  const amt = donateAmount(), ok = amt >= DONATE.min, b = $('#donate-btn'); if (!b) return;
+  $('#donate-label').textContent = ok ? `Donate ${money(amt)}` : 'Enter an amount';
+  b.disabled = !ok || state.busy === 'donate';
+  document.querySelectorAll('[data-action="amt"]').forEach((c) => {
+    const on = state.donate.custom === '' && +c.dataset.v === state.donate.amount;
+    c.classList.toggle('bg-brand', on); c.classList.toggle('text-white', on); c.classList.toggle('border-brand', on); c.classList.toggle('border-slate-300', !on);
+  });
+};
+async function submitDonation() {
+  const d = state.donate, amt = donateAmount(); d.error = ''; d.info = '';
+  if (!(amt >= DONATE.min)) { d.error = `The smallest donation is ${money(DONATE.min)}.`; return render(); }
+  state.busy = 'donate'; render();
+  try {
+    const r = await PAY.start({ amount: amt, email: d.email.trim(), name: d.name.trim() });
+    state.donation = { amount: amt, name: d.name.trim(), reference: r && r.reference, verse: VERSES.thanks[Math.floor(Math.random() * VERSES.thanks.length)] };
+    snooze(DONATE.afterDonationDays); state.donate = freshDonate(); state.busy = ''; go('thanks');
+  } catch (e) {
+    state.busy = '';
+    if (e.message === 'CANCELLED') d.info = 'Payment cancelled. You have not been charged.';
+    else d.error = e.message === 'NOT_CONNECTED' ? 'Donations are not switched on yet. Thank you for wanting to help. Please check back soon.' : e.message;
+    render();
+  }
+}
+
+const donateScreen = () => {
+  const d = state.donate, amt = donateAmount(), ready = amt >= DONATE.min;
+  const input = 'w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+  return `
+  <div class="band"><section class="max-w-5xl mx-auto px-5 py-10 text-white pop">
+    <span class="grid place-items-center w-12 h-12 rounded-2xl bg-amber-rate text-ink">${icon('heart', 24)}</span>
+    <h1 class="mt-4 text-3xl sm:text-4xl font-extrabold">Keep ProConnect free</h1>
+    <p class="mt-2 text-white/80 max-w-2xl">ProConnect is free for everyone who needs a trusted pro, and for every pro building their name. Your gift helps pay the running costs that keep it that way.</p>
+  </section></div>
+  <section class="max-w-5xl mx-auto px-5 py-8 grid lg:grid-cols-5 gap-6">
+    <form data-form="donate" class="lg:col-span-3 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-5 content-start">
+      <div><div class="text-sm font-semibold mb-2">Choose an amount</div>
+        <div class="grid grid-cols-3 sm:grid-cols-5 gap-2">${DONATE.presets.map((v) => `<button type="button" data-action="amt" data-v="${v}" class="rounded-xl border px-3 py-3 font-bold transition ${d.custom === '' && d.amount === v ? 'bg-brand text-white border-brand' : 'border-slate-300 hover:border-brand/50'}">₵${v}</button>`).join('')}</div>
+        <label class="mt-3 grid gap-1 text-sm font-semibold">Or enter your own amount (GH₵)<input data-field="donate.custom" inputmode="decimal" value="${esc(d.custom)}" placeholder="e.g. 75" class="${input}"></label></div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <label class="grid gap-1 text-sm font-semibold">Your name (optional)<input data-field="donate.name" value="${esc(d.name)}" autocomplete="name" placeholder="So we can thank you" class="${input}"></label>
+        <label class="grid gap-1 text-sm font-semibold">Email (for your receipt)<input data-field="donate.email" type="email" required value="${esc(d.email)}" autocomplete="email" placeholder="you@example.com" class="${input}"></label>
+      </div>
+      ${d.error ? `<p class="text-sm text-red-600" role="alert">${esc(d.error)}</p>` : ''}
+      ${d.info ? `<p class="text-sm text-slate-600" role="status">${esc(d.info)}</p>` : ''}
+      <button id="donate-btn" class="rounded-xl bg-wa hover:bg-wa-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 inline-flex items-center justify-center gap-2 transition-colors" ${ready && state.busy !== 'donate' ? '' : 'disabled'}>${icon('heart', 18)}<span id="donate-label">${state.busy === 'donate' ? 'Opening secure checkout…' : ready ? `Donate ${money(amt)}` : 'Enter an amount'}</span></button>
+      <p class="text-xs text-slate-500 flex items-start gap-1.5">${icon('lock', 14, 'mt-0.5 shrink-0')}<span>Secure checkout by Paystack. We never see or store your card or mobile money details.</span></p>
+      <p class="text-xs text-slate-500">A donation is a voluntary gift, not payment for a service. It does not buy ranking, special treatment or a Verified badge. See our <button type="button" data-action="terms" class="underline hover:text-brand">Terms</button>.</p>
+    </form>
+    <aside class="lg:col-span-2 grid gap-4 content-start">
+      <figure class="rounded-3xl bg-brand-soft p-6"><blockquote class="text-brand font-semibold leading-relaxed">“${esc(VERSES.give.text)}”</blockquote><figcaption class="mt-3 text-sm text-slate-600">${esc(VERSES.give.ref)} (KJV)</figcaption></figure>
+      <div class="rounded-3xl bg-white border border-slate-200 p-6"><h2 class="font-bold text-lg">Where your gift goes</h2>
+        <ul class="mt-4 grid gap-4">${[['server', 'Hosting and running costs', 'Keeping the site fast, safe and online.'], ['code', 'Building new features', 'Reviews, better search and more ways to connect.'], ['life-buoy', 'Support and safety', 'Helping users and checking profiles.']].map(([ic, t, x]) => `<li class="flex gap-3"><span class="grid place-items-center w-10 h-10 rounded-xl bg-brand-soft text-brand shrink-0">${icon(ic, 20)}</span><div><div class="font-semibold">${t}</div><div class="text-sm text-slate-500">${x}</div></div></li>`).join('')}</ul></div>
+    </aside>
+  </section>`;
+};
+
+const thanksScreen = () => {
+  const t = state.donation; if (!t) return donateScreen();
+  return `
+  <section class="max-w-2xl mx-auto px-5 py-12 text-center pop">
+    <div class="mx-auto w-20 h-20 rounded-full bg-emerald-50 text-emerald-600 grid place-items-center">${icon('heart', 36)}</div>
+    <h1 class="mt-6 text-3xl sm:text-4xl font-extrabold">Thank you${t.name ? ', ' + esc(t.name.split(' ')[0]) : ''}!</h1>
+    <p class="mt-3 text-lg text-slate-600">Your donation of <b>${money(t.amount)}</b> went through. Because of you, ProConnect stays free for people looking for trusted help and for professionals building their name.</p>
+    <figure class="mt-8 rounded-3xl bg-brand-soft p-6 text-left"><blockquote class="text-brand font-semibold leading-relaxed">“${esc(t.verse.text)}”</blockquote><figcaption class="mt-3 text-sm text-slate-600">${esc(t.verse.ref)} (KJV)</figcaption></figure>
+    ${t.reference ? `<p class="mt-5 text-xs text-slate-400">Payment reference: ${esc(t.reference)}. Keep it for your records.</p>` : ''}
+    <div class="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+      <button data-action="skip" class="rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-7 py-3.5 transition-colors">Find a professional</button>
+      <a href="https://wa.me/?text=${encodeURIComponent('I found ProConnect: free, trusted local pros you can chat with on WhatsApp. ' + location.href)}" target="_blank" rel="noopener noreferrer" class="rounded-xl bg-wa hover:bg-wa-dark text-white font-bold px-7 py-3.5 inline-flex items-center justify-center gap-2 transition-colors">${icon('share-2', 18)} Share ProConnect</a>
+      <button data-action="home" class="rounded-xl border-2 border-slate-200 text-slate-600 font-bold px-7 py-3.5 hover:bg-slate-50 transition-colors">Back to home</button>
+    </div>
+  </section>`;
+};
+
 /* ---------- Render ---------- */
 function render() {
   const s = state.screen;
   $('#app').innerHTML =
-    (s !== 'landing' ? header() : '') +
-    (s === 'landing' ? landing() : s === 'market' ? marketplace() : s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : s === 'terms' ? termsScreen() : dashboard()) + bottomNav() + briefSheet();
+    header() +
+    (s === 'landing' ? landing() : s === 'market' ? marketplace() : s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : s === 'terms' ? termsScreen() : s === 'donate' ? donateScreen() : s === 'thanks' ? thanksScreen() : dashboard()) + bottomNav() + briefSheet();
   afterRender();
 }
-function go(screen) { state.brief = null; state.screen = screen; render(); window.scrollTo(0, 0); }
+function go(screen) { state.brief = null; if (!['landing', 'market'].includes(screen)) removeDonatePopup(); state.screen = screen; render(); window.scrollTo(0, 0); }
 function setRole(r) {
   if (r === 'worker' && !state.user) {
     state.role = 'customer';
@@ -624,6 +771,9 @@ document.addEventListener('click', (e) => {
       state.prev = state.screen; go('terms'); break;
     }
     case 'terms-back': go(state.prev || 'landing'); break;
+    case 'donate': removeDonatePopup(); if (state.screen !== 'donate') state.prev = state.screen; go('donate'); break;
+    case 'donate-later': snooze(DONATE.snoozeDays); removeDonatePopup(); break;
+    case 'amt': state.donate.amount = +d.v; state.donate.custom = ''; paintDonate(); break;
   }
 });
 document.addEventListener('keydown', (e) => {
@@ -636,6 +786,7 @@ document.addEventListener('input', (e) => {
   const v = e.target.value;
   if (f === 'query' || f === 'location') { state[f] = v; updateMarket(); }
   else if (f === 'sort') { state.sort = v; updateMarket(); }
+  else if (f.startsWith('donate.')) { state.donate[f.split('.')[1]] = v; paintDonate(); }
   else if (f.startsWith('brief.')) { state.brief[f.split('.')[1]] = v; updateBrief(); }
   else if (f.startsWith('landing.')) state.landing[f.split('.')[1]] = v;
   else if (f.startsWith('draft.')) {
@@ -655,8 +806,10 @@ document.addEventListener('submit', (e) => {
   const kind = e.target.dataset.form, f = Object.fromEntries(new FormData(e.target));
   if (kind === 'landing') { state.query = state.landing.svc; state.location = state.landing.loc; setRole('customer'); }
   if (kind === 'auth') submitAuth(f);
+  if (kind === 'donate') submitDonation();
   if (kind === 'account') saveAccount(f);
 });
 
 render();
+scheduleDonatePopup();
 AUTH.restoreSession().then(async (u) => { if (u) { await startSession(u); render(); } }).catch(() => {});
