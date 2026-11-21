@@ -280,7 +280,7 @@ const tilesHTML = () => {
   const extra = [...new Set(state.workers.map((w) => w.category))].filter((c) => c && !CATEGORIES.some((k) => k.name === c));
   return [...CATEGORIES, ...extra.map((name) => ({ name, icon: 'briefcase' }))].map(({ name, icon: ic }) => {
     const on = state.category === name;
-    return `<button data-action="category" data-name="${esc(name)}" class="card-lift rounded-2xl border p-4 flex flex-col class="rounded-2xl border p-4 flex flex-col items-center gap-2 font-semibold transition ${on ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200 hover:border-brand/40'}"><span class="grid place-items-center w-11 h-11 rounded-xl ${on ? 'bg-white/15' : 'bg-brand-soft text-brand'}">${icon(ic, 22)}</span>${esc(name)}</button>`;
+    return `<button data-action="category" data-name="${esc(name)}" class="card-lift rounded-2xl border p-4 flex flex-col items-center gap-2 font-semibold transition ${on ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200 hover:border-brand/40'}"><span class="grid place-items-center w-11 h-11 rounded-xl ${on ? 'bg-white/15' : 'bg-brand-soft text-brand'}">${icon(ic, 22)}</span>${esc(name)}</button>`;
   }).join('');
 };
 
@@ -360,7 +360,7 @@ const dashboard = () => {
           ${CATEGORIES.map(({ name, icon: ic }) => `<button data-action="draft-cat" data-name="${name}" class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold border ${d.category === name ? 'bg-brand text-white border-brand' : 'border-slate-300 hover:border-brand/50'}">${icon(ic, 15)}${name}</button>`).join('')}
           <button data-action="draft-other" class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold border ${isOther(d) ? 'bg-brand text-white border-brand' : 'border-slate-300 hover:border-brand/50'}">${icon('briefcase', 15)}Other</button>
         </div>
-        ${isOther(d) ? `<input data-field="draft.category" value="${esc(d.category)}" maxlength="40" list="cat-ideas" placeholder="Type your category, e.g. Graphic Designer" class="${input} mt-3"><datalist id="cat-ideas">${CAT_IDEAS.map((c) => `<option value="${c}">`).join('')}</datalist>` : ''}</div>>
+        ${isOther(d) ? `<input data-field="draft.category" value="${esc(d.category)}" maxlength="40" list="cat-ideas" placeholder="Type your category, e.g. Graphic Designer" class="${input} mt-3"><datalist id="cat-ideas">${CAT_IDEAS.map((c) => `<option value="${c}">`).join('')}</datalist>` : ''}</div>
         <div class="grid sm:grid-cols-2 gap-4">
           <label class="grid gap-1 text-sm font-semibold">Service area<input class="${input}" data-field="draft.area" value="${esc(d.area)}" placeholder="e.g. Kumasi – Ahodwo"></label>
           <label class="grid gap-1 text-sm font-semibold">WhatsApp number<input class="${input}" inputmode="tel" data-field="draft.phone" value="${esc(d.phone)}" placeholder="024 000 0000"></label>
