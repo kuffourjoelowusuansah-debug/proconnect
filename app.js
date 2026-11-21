@@ -20,6 +20,7 @@ const ICONS = {
  "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <polyline points=\"12 6 12 12 16 14\" />",
  "eye": "<path d=\"M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z\" /> <circle cx=\"12\" cy=\"12\" r=\"3\" />",
  "shield-check": "<path d=\"M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z\" /> <path d=\"m9 12 2 2 4-4\" />",
+ "share-2": "<circle cx=\"18\" cy=\"5\" r=\"3\" /> <circle cx=\"6\" cy=\"12\" r=\"3\" /> <circle cx=\"18\" cy=\"19\" r=\"3\" /> <line x1=\"8.59\" x2=\"15.42\" y1=\"13.51\" y2=\"17.49\" /> <line x1=\"15.41\" x2=\"8.59\" y1=\"6.51\" y2=\"10.49\" />",
  "sparkles": "<path d=\"M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z\" /> <path d=\"M20 3v4\" /> <path d=\"M22 5h-4\" /> <path d=\"M4 17v2\" /> <path d=\"M5 18H3\" />"
 };
 
@@ -181,37 +182,56 @@ const waButton = (w, big = false) => {
   const msg = encodeURIComponent(`Hi ${w.name}, I found you on ProConnect and need a ${w.category.toLowerCase()} job done.`);
   return `<a href="https://wa.me/${toWa(w.phone)}?text=${msg}" target="_blank" rel="noopener noreferrer" class="w-full ${big ? 'py-3.5 text-base' : 'py-2.5 text-sm'} inline-flex items-center justify-center gap-2 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold shadow-sm transition-colors">${icon('message-circle', big ? 20 : 18)} Chat on WhatsApp</a>`;
 };
-const workerCard = (w, preview = false) => `
-  <article ${preview ? '' : `data-action="open" data-id="${w.id}" tabindex="0" role="button"`} class="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col gap-3 ${preview ? '' : 'cursor-pointer hover:border-brand/40 hover:shadow-md transition'}">
-    <div class="flex items-start gap-3">
-      ${avatar(w)}
-      <div class="min-w-0 flex-1">
-        <h3 class="font-bold leading-tight flex items-center gap-1"><span class="truncate">${esc(w.name) || 'Your name'}</span>${w.verified ? icon('badge-check', 18, 'text-sky-500 shrink-0') : ''}</h3>
-        <p class="text-sm text-slate-500 flex items-center gap-1 mt-0.5">${icon(catIcon(w.category), 14)} ${esc(w.category)} · ${esc(w.type)}</p>
-        <div class="mt-1">${rating(w)}</div>
+const workerCard = (w, preview = false) => {
+  const strip = [0, 1, 2].map((i) => { const [c1, c2] = TINTS[(w.tint + i) % TINTS.length]; return `<span class="flex-1" style="background:linear-gradient(135deg,${c1},${c2})"></span>`; }).join('');
+  return `
+  <article ${preview ? '' : `data-action="open" data-id="${w.id}" tabindex="0" role="button"`} class="card-lift bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col ${preview ? '' : 'cursor-pointer'}">
+    <div class="flex h-16">${strip}</div>
+    <div class="p-4 pt-0 flex flex-col gap-3">
+      <div class="flex items-end justify-between -mt-7">
+        <div class="ring-4 ring-white rounded-full">${avatar(w, 56)}</div>
+        ${w.verified ? badge('Verified', 'badge-check', 'green') : ''}
       </div>
+      <div>
+        <h3 class="text-lg font-bold leading-tight truncate">${esc(w.name) || 'Your name'}</h3>
+        <p class="text-sm text-slate-500 flex items-center gap-1 mt-0.5">${icon(catIcon(w.category), 14)} ${esc(w.category)} · ${esc(w.type)}</p>
+      </div>
+      <div class="flex items-center justify-between">${rating(w)}<span class="text-sm text-slate-500">${esc(w.years)} yrs experience</span></div>
+      <p class="text-sm text-slate-500 flex items-center gap-1">${icon('map-pin', 15)} ${esc(w.area) || 'Your service area'}</p>
+      ${waButton(w)}
     </div>
-    <p class="text-sm text-slate-500 flex items-center gap-1">${icon('map-pin', 15)} ${esc(w.area) || 'Your service area'}</p>
-    ${waButton(w)}
   </article>`;
-
+};
 /* ---------- Screens ---------- */
 const header = () => `
   <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between gap-3">
       <button data-action="home" class="flex items-center gap-2 font-extrabold text-lg text-brand">
-        <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-white">${icon('message-circle', 18)}</span><span class="hidden sm:inline">ProConnect</span></button>
-      <div class="inline-flex p-1 bg-slate-100 rounded-xl text-sm font-semibold">
-               <button data-action="role" data-role="worker" class="px-3 sm:px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'worker' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('briefcase', 16)}I'm a Worker</button>
+        <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-white">${icon('message-circle', 18)}</span>ProConnect</button>
+      <div class="hidden md:inline-flex p-1 bg-slate-100 rounded-xl text-sm font-semibold">
+        <button data-action="role" data-role="customer" class="px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'customer' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('users', 16)}Find a Professional</button>
+        <button data-action="role" data-role="worker" class="px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'worker' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('briefcase', 16)}I'm a Worker</button>
       </div>
-      <button data-action="${state.user ? 'account' : 'auth'}" data-mode="login" class="inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline whitespace-nowrap">${state.user ? `${icon('user', 18)}<span class="hidden sm:inline">${esc((state.user.name || 'Account').split(' ')[0])}</span>` : 'Sign in'}</button>
+      <button data-action="${state.user ? 'account' : 'auth'}" data-mode="login" class="hidden md:inline-flex items-center gap-1.5 text-sm font-semibold text-brand hover:underline whitespace-nowrap">${state.user ? `${icon('user', 18)}${esc((state.user.name || 'Account').split(' ')[0])}` : 'Sign in'}</button>
     </div>
   </header>`;
+
+const bottomNav = () => {
+  if (state.screen === 'landing' || state.screen === 'profile') return '';
+  const item = (action, attrs, ic, label, on) => `<button data-action="${action}" ${attrs} class="flex-1 flex flex-col items-center gap-0.5 py-2 text-xs font-semibold ${on ? 'text-brand' : 'text-slate-500'}">${icon(ic, 22)}${label}</button>`;
+  return `<div class="md:hidden h-20"></div>
+  <nav class="md:hidden fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 flex pb-[env(safe-area-inset-bottom)]">
+    ${item('role', 'data-role="customer"', 'search', 'Find', state.screen === 'market')}
+    ${item('role', 'data-role="worker"', 'briefcase', 'Worker', state.screen === 'dashboard')}
+    ${item(state.user ? 'account' : 'auth', 'data-mode="login"', 'user', state.user ? 'Account' : 'Sign in', state.screen === 'account' || state.screen === 'auth')}
+  </nav>`;
+};
 const landing = () => `
-  <section class="max-w-5xl mx-auto px-5 pt-14 pb-20 text-center pop">
+  <div class="hero-bg">
+  <section class="max-w-5xl mx-auto px-5 pt-14 pb-14 text-center pop">
     ${badge('Every pro is reachable on WhatsApp in one tap', 'shield-check', 'green')}
-    <h1 class="mt-5 text-4xl sm:text-6xl font-extrabold tracking-tight text-ink leading-[1.05]">Find trusted local experts<br class="hidden sm:block"> or get hired instantly.</h1>
-    <p class="mt-5 text-lg text-slate-600 max-w-xl mx-auto">Plumbers, electricians, carpenters and painters near you. No forms, no waiting. Just chat and agree on the job.</p>
+    <h1 class="mt-5 text-4xl sm:text-6xl font-extrabold text-ink leading-[1.05]">Find trusted local experts<br class="hidden sm:block"> or <span class="hl">get hired instantly.</span></h1>
+    <p class="mt-5 text-lg text-slate-600 max-w-xl mx-auto">Plumbers, electricians, carpenters, designers and more near you. No forms, no waiting. Just chat and agree on the job.</p>
     <form data-form="landing" class="mt-9 mx-auto max-w-3xl bg-white rounded-2xl shadow-lg border border-slate-200 p-2 flex flex-col sm:flex-row gap-2 text-left">
       <label class="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50">${icon('search', 20, 'text-brand')}
         <input data-field="landing.svc" value="${esc(state.landing.svc)}" placeholder="What do you need? e.g. plumber" class="w-full bg-transparent outline-none placeholder:text-slate-400"></label>
@@ -221,13 +241,35 @@ const landing = () => `
     </form>
     <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
       <button data-action="skip" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold px-8 py-4 text-lg shadow-lg shadow-emerald-200 transition-colors">${icon('sparkles', 20)} Skip Login &amp; Explore</button>
-          <button data-action="auth" data-mode="login" class="w-full sm:w-auto rounded-xl border-2 border-brand text-brand font-bold px-8 py-3.5 hover:bg-brand-soft transition-colors">Log in</button>
-      <button data-action="auth" data-mode="signup" class="w-full sm:w-auto rounded-xl bg-brand text-white font-bold px-8 py-3.5 hover:bg-brand-dark transition-colors">Sign up</button></div>
-    <p class="mt-4 text-sm text-slate-500">Browsing as a guest takes zero details. You can sign up whenever you like.</p>
-    <div class="mt-14 grid grid-cols-3 gap-3 max-w-2xl mx-auto">
-      ${[['1,200+', 'Verified pros'], ['4.8', 'Average rating'], ['< 5 min', 'To first reply']].map(([n, l]) => `<div class="bg-white rounded-2xl border border-slate-200 py-4"><div class="text-2xl font-extrabold text-brand">${esc(n)}</div><div class="text-xs sm:text-sm text-slate-500">${l}</div></div>`).join('')}
+      <button data-action="auth" data-mode="login" class="w-full sm:w-auto rounded-xl border-2 border-brand text-brand font-bold px-8 py-3.5 hover:bg-brand-soft transition-colors">Log in</button>
+      <button data-action="auth" data-mode="signup" class="w-full sm:w-auto rounded-xl bg-brand text-white font-bold px-8 py-3.5 hover:bg-brand-dark transition-colors">Sign up</button>
     </div>
-  </section>`;
+    <p class="mt-4 text-sm text-slate-500">Browsing as a guest takes zero details. You can sign up whenever you like.</p>
+    <div class="mt-12 grid grid-cols-3 gap-3 max-w-2xl mx-auto">
+      ${[['1,200+', 'Verified pros'], ['4.8', 'Average rating'], ['< 5 min', 'To first reply']].map(([n, l]) => `<div class="bg-white/80 rounded-2xl border border-slate-200 py-4"><div class="text-2xl font-extrabold text-brand">${esc(n)}</div><div class="text-xs sm:text-sm text-slate-500">${l}</div></div>`).join('')}
+    </div>
+  </section></div>
+
+  <section class="max-w-5xl mx-auto px-5 py-12">
+    <h2 class="text-2xl sm:text-3xl font-extrabold text-center">How it works</h2>
+    <div class="mt-8 grid sm:grid-cols-3 gap-4">
+      ${[['search', 'Search', 'Pick a trade and your area.'], ['message-circle', 'Chat on WhatsApp', 'Message the pro directly. No sign-up needed.'], ['check', 'Get it done', 'Agree on the job and the price together.']].map(([ic, t, d], i) => `<div class="card-lift bg-white rounded-2xl border border-slate-200 p-6"><span class="grid place-items-center w-11 h-11 rounded-xl bg-brand-soft text-brand">${icon(ic, 22)}</span><div class="mt-4 text-xs font-bold text-amber-rate">STEP ${i + 1}</div><h3 class="mt-1 text-lg font-bold">${t}</h3><p class="mt-1 text-slate-500 text-sm">${d}</p></div>`).join('')}
+    </div>
+  </section>
+
+  ${state.workers.length ? `<section class="max-w-6xl mx-auto px-5 pb-12">
+    <div class="flex items-end justify-between"><h2 class="text-2xl sm:text-3xl font-extrabold">Top-rated pros</h2><button data-action="skip" class="text-sm font-semibold text-brand hover:underline">See all</button></div>
+    <div class="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${state.workers.slice(0, 3).map((w) => workerCard(w)).join('')}</div>
+  </section>` : ''}
+
+  <section class="max-w-5xl mx-auto px-5 pb-16">
+    <div class="rounded-3xl bg-brand text-white p-8 sm:p-10 flex flex-col sm:flex-row items-center justify-between gap-5">
+      <div><h2 class="text-2xl sm:text-3xl font-extrabold">Are you a pro? Get hired on WhatsApp.</h2>
+        <p class="mt-1 text-white/80">Create a free profile in minutes. Plumbers, electricians, designers, video editors and more.</p></div>
+      <button data-action="role" data-role="worker" class="shrink-0 rounded-xl bg-amber-rate hover:brightness-95 text-ink font-bold px-7 py-3.5 transition">Join as a worker</button>
+    </div>
+  </section>
+  <footer class="text-center text-sm text-slate-400 pb-10">ProConnect · Find trusted local experts</footer>`;
 
 const filtered = () => state.workers.filter((w) =>
   (!state.category || w.category === state.category) &&
@@ -238,7 +280,7 @@ const tilesHTML = () => {
   const extra = [...new Set(state.workers.map((w) => w.category))].filter((c) => c && !CATEGORIES.some((k) => k.name === c));
   return [...CATEGORIES, ...extra.map((name) => ({ name, icon: 'briefcase' }))].map(({ name, icon: ic }) => {
     const on = state.category === name;
-    return `<button data-action="category" data-name="${esc(name)}" class="rounded-2xl border p-4 flex flex-col items-center gap-2 font-semibold transition ${on ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200 hover:border-brand/40'}"><span class="grid place-items-center w-11 h-11 rounded-xl ${on ? 'bg-white/15' : 'bg-brand-soft text-brand'}">${icon(ic, 22)}</span>${esc(name)}</button>`;
+    return `<button data-action="category" data-name="${esc(name)}" class="card-lift rounded-2xl border p-4 flex flex-col class="rounded-2xl border p-4 flex flex-col items-center gap-2 font-semibold transition ${on ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200 hover:border-brand/40'}"><span class="grid place-items-center w-11 h-11 rounded-xl ${on ? 'bg-white/15' : 'bg-brand-soft text-brand'}">${icon(ic, 22)}</span>${esc(name)}</button>`;
   }).join('');
 };
 
@@ -272,7 +314,7 @@ const profileDetail = () => {
   <section class="max-w-3xl mx-auto px-5 py-6 pb-32 pop">
     <button data-action="back" class="inline-flex items-center gap-1 text-slate-600 font-semibold hover:text-brand">${icon('arrow-left', 18)} Back to results</button>
     <div class="mt-4 bg-white rounded-3xl border border-slate-200 overflow-hidden">
-      <div class="h-28" style="background:linear-gradient(120deg,${a},${b})"></div>
+      <div class="h-36 sm:h-44" style="background:linear-gradient(120deg,${a},${b})"></div>
       <div class="px-5 pb-6 -mt-10">
         <div class="ring-4 ring-white rounded-full w-fit">${avatar(w, 80)}</div>
         <h2 class="mt-3 text-2xl font-extrabold flex items-center gap-2">${esc(w.name)}${w.verified ? icon('badge-check', 24, 'text-sky-500') : ''}</h2>
@@ -290,7 +332,8 @@ const profileDetail = () => {
     </div>
     <div class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-slate-200 p-3">
       <div class="max-w-3xl mx-auto flex gap-3"><div class="flex-1">${waButton(w, true)}</div>
-        <a href="tel:+${toWa(w.phone)}" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-brand text-brand font-bold px-5 hover:bg-brand-soft">${icon('phone', 20)}<span class="hidden sm:inline">Call</span></a></div>
+        <a href="tel:+${toWa(w.phone)}" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-brand text-brand font-bold px-5 hover:bg-brand-soft">${icon('phone', 20)}<span class="hidden sm:inline">Call</span></a>
+        <a href="https://wa.me/?text=${encodeURIComponent(`${w.name} on ProConnect: ${location.href}`)}" target="_blank" rel="noopener noreferrer" aria-label="Share this profile" class="inline-flex items-center justify-center rounded-xl border-2 border-slate-200 text-slate-600 px-4 hover:bg-slate-50">${icon('share-2', 20)}</a></div>
     </div>
   </section>`;
 };
@@ -341,8 +384,7 @@ function render() {
   const s = state.screen;
   $('#app').innerHTML =
     (s !== 'landing' ? header() : '') +
-    (s === 'landing' ? landing() : s === 'market' ? marketplace() :s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : dashboard());
-}
+    (s === 'landing' ? landing() : s === 'market' ? marketplace() :s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : dashboard()) + bottomNav();
 function go(screen) { state.screen = screen; render(); window.scrollTo(0, 0); }
 function setRole(r) {
   if (r === 'worker' && !state.user) {
