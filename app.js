@@ -385,7 +385,8 @@ function render() {
   $('#app').innerHTML =
     (s !== 'landing' ? header() : '') +
     (s === 'landing' ? landing() : s === 'market' ? marketplace() :s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : dashboard()) + bottomNav();
-function go(screen) { state.screen = screen; render(); window.scrollTo(0, 0); }
+}
+ function go(screen) { state.screen = screen; render(); window.scrollTo(0, 0); }
 function setRole(r) {
   if (r === 'worker' && !state.user) {
     state.role = 'customer';
