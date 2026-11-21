@@ -1,3 +1,18 @@
+/* ===== Loader / splash screen (runs first so it shows right away) ===== */
+(() => {
+  if (!document.querySelector('link[rel~="icon"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="icon" href="logo-icon.png">');
+  const el = document.createElement('div');
+  el.className = 'splash';
+  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = '<div class="splash-inner"><img src="logo-white.png" alt="" class="splash-logo" onerror="this.style.display=\'none\'"><div class="splash-name">ProConnect</div><div class="splash-tag">Finding trusted pros near you</div><div class="splash-bar"><span></span></div></div>';
+  document.body.appendChild(el);
+  const hide = () => { el.classList.add('hide'); setTimeout(() => el.remove(), 700); };
+  const t0 = Date.now();
+  const done = () => setTimeout(hide, Math.max(0, 1400 - (Date.now() - t0)));
+  if (document.readyState === 'complete') done(); else window.addEventListener('load', done);
+  setTimeout(hide, 5000); // failsafe: never stay stuck on the splash
+})();
+
 /* Lucide icons (inline SVG paths) */
 const ICONS = {
  "search": "<circle cx=\"11\" cy=\"11\" r=\"8\" /> <path d=\"m21 21-4.3-4.3\" />",
@@ -33,10 +48,7 @@ const CATEGORIES = [
   { name: 'Plumbing', icon: 'wrench' }, { name: 'Electrical', icon: 'zap' },
   { name: 'Carpentry', icon: 'hammer' }, { name: 'Painting', icon: 'paint-bucket' },
   { name: 'Masonry', icon: 'layers' },
- 
 ];
-const CAT_IDEAS = ['Graphic Design', 'Video Editing', 'Photography', 'Web Development', 'Tailoring', 'Hairdressing', 'Welding', 'Tiling', 'Cleaning', 'Mechanic', 'Catering', 'DJ & Music'];
-const isOther = (d) => !CATEGORIES.some((c) => c.name === d.category);
 const TINTS = [['#1F3A5F', '#3B6FB6'], ['#0F766E', '#34D399'], ['#9A3412', '#FB923C'], ['#6D28D9', '#A78BFA'], ['#BE123C', '#FB7185'], ['#0369A1', '#38BDF8']];
 const SEED = [
   { id: 1, name: 'Kwame Mensah', type: 'Personal', category: 'Plumbing', area: 'Kumasi – Ahodwo', rating: 4.9, reviews: 128, years: 12, verified: true, phone: '0244000001', tint: 0, bio: 'Burst pipes, leaking taps, water tank installs and bathroom fittings. I show up on time and clean up after the job.' },
@@ -56,7 +68,8 @@ const PORTFOLIO = {
 
 /* ---------- State ---------- */
 const freshDraft = () => ({ type: 'Personal', name: '', category: 'Plumbing', area: '', phone: '', years: 3, bio: '', photo: null });
-const state = { screen: 'landing', role: 'customer', selected: null, query: '', location: '', category: '', workers: [...SEED], draft: freshDraft(), landing: { svc: '', loc: '' } };
+const state = { screen: 'landing', role: 'customer', selected: null, query: '', location: '', category: '', workers: [...SEED], draft: freshDraft(), landing: { svc: '', loc: '' }, verifiedOnly: false, minRating: 0, sort: 'rating' };
+
 /* ================= ACCOUNT LAYER =================
    AUTH is the ONLY part your developer has to connect to the real backend.
    Every function returns a Promise. Until they are connected the UI says so honestly. */
@@ -157,11 +170,12 @@ const accountScreen = () => {
     <button data-action="signout" class="justify-self-start text-sm font-semibold text-slate-600 hover:underline">Sign out</button>
   </section>`;
 };
+
 /* ---------- Helpers ---------- */
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const toWa = (p) => { let d = (p || '').replace(/\D/g, ''); if (d.startsWith('0')) d = '233' + d.slice(1); return d; };
-const catIcon = (name) => (CATEGORIES.find((c) => c.name === name) || { icon: 'briefcase' }).icon;
+const catIcon = (name) => (CATEGORIES.find((c) => c.name === name) || CATEGORIES[0]).icon;
 let toastTimer;
 const toast = (msg) => {
   const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden');
@@ -203,12 +217,14 @@ const workerCard = (w, preview = false) => {
     </div>
   </article>`;
 };
+
+
 /* ---------- Screens ---------- */
 const header = () => `
   <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between gap-3">
       <button data-action="home" class="flex items-center gap-2 font-extrabold text-lg text-brand">
-        <span class="grid place-items-center w-8 h-8 rounded-lg bg-brand text-white">${icon('message-circle', 18)}</span>ProConnect</button>
+        <img src="logo-icon.png" alt="" class="w-9 h-9 object-contain" onerror="this.style.display='none'">ProConnect</button>
       <div class="hidden md:inline-flex p-1 bg-slate-100 rounded-xl text-sm font-semibold">
         <button data-action="role" data-role="customer" class="px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'customer' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('users', 16)}Find a Professional</button>
         <button data-action="role" data-role="worker" class="px-4 py-2 rounded-lg inline-flex items-center gap-1.5 ${state.role === 'worker' ? 'bg-white shadow text-brand' : 'text-slate-500'}">${icon('briefcase', 16)}I'm a Worker</button>
@@ -227,6 +243,8 @@ const bottomNav = () => {
     ${item(state.user ? 'account' : 'auth', 'data-mode="login"', 'user', state.user ? 'Account' : 'Sign in', state.screen === 'account' || state.screen === 'auth')}
   </nav>`;
 };
+
+
 const landing = () => `
   <div class="hero-bg">
   <section class="max-w-6xl mx-auto px-5 pt-12 pb-12 pop">
@@ -290,12 +308,26 @@ const landing = () => `
       <button data-action="role" data-role="worker" class="shrink-0 rounded-xl bg-amber-rate hover:brightness-95 text-ink font-bold px-7 py-3.5 transition">Join as a worker</button>
     </div>
   </section>
-   <footer class="text-center text-sm text-slate-400 pb-10 px-5">ProConnect · Find trusted local experts · <button data-action="terms" class="underline hover:text-brand">Terms of Service</button><p class="mt-1">ProConnect is free for now. We only connect you to professionals.</p></footer>`;
+  <footer class="band text-white">
+    <div class="max-w-6xl mx-auto px-5 py-10 flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
+      <div class="flex items-center gap-3"><img src="logo-white.png" alt="ProConnect" class="h-12 w-auto" onerror="this.style.display='none'"><div><div class="font-extrabold text-lg">ProConnect</div><div class="text-sm text-white/70">Find trusted local experts</div></div></div>
+      <div class="text-sm text-white/70"><button data-action="terms" class="underline hover:text-white">Terms of Service</button><p class="mt-1">ProConnect is free for now. We only connect you to professionals.</p></div>
+    </div>
+  </footer>`;
 
+
+const SORTS = {
+  rating: ['Top rated', (a, b) => (b.reviews ? b.rating : 0) - (a.reviews ? a.rating : 0) || b.reviews - a.reviews],
+  experience: ['Most experienced', (a, b) => b.years - a.years],
+  reviews: ['Most reviews', (a, b) => b.reviews - a.reviews],
+};
 const filtered = () => state.workers.filter((w) =>
   (!state.category || w.category === state.category) &&
+  (!state.verifiedOnly || w.verified) &&
+  (!state.minRating || (w.reviews > 0 && w.rating >= state.minRating)) &&
   (!state.query || (w.name + w.category + w.bio).toLowerCase().includes(state.query.toLowerCase())) &&
-  (!state.location || w.area.toLowerCase().includes(state.location.toLowerCase())));
+  (!state.location || w.area.toLowerCase().includes(state.location.toLowerCase()))
+).sort((SORTS[state.sort] || SORTS.rating)[1]);
 
 const tilesHTML = () => {
   const extra = [...new Set(state.workers.map((w) => w.category))].filter((c) => c && !CATEGORIES.some((k) => k.name === c));
@@ -305,29 +337,57 @@ const tilesHTML = () => {
   }).join('');
 };
 
+const toolbarHTML = () => {
+  const cities = [...new Set(state.workers.map((w) => (w.area || '').split(' – ')[0]).filter(Boolean))].slice(0, 6);
+  const chip = (on, attrs, label, ic) => `<button ${attrs} class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold border transition ${on ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200 text-slate-600 hover:border-brand/40'}">${ic ? icon(ic, 15) : ''}${label}</button>`;
+  const active = state.verifiedOnly || state.minRating || state.category || state.query || state.location;
+  return `
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="text-sm font-semibold text-slate-500 mr-1">Near you</span>
+    ${cities.map((c) => chip(state.location.toLowerCase() === c.toLowerCase(), `data-action="city" data-name="${esc(c)}"`, esc(c), 'map-pin')).join('')}
+  </div>
+  <div class="mt-3 flex flex-wrap items-center gap-2">
+    ${chip(state.verifiedOnly, 'data-action="verified"', 'Verified only', 'badge-check')}
+    ${chip(!!state.minRating, 'data-action="rating"', '4.8+ rating', 'star')}
+    ${active ? '<button data-action="clear" class="text-sm font-semibold text-brand hover:underline px-1">Clear all</button>' : ''}
+    <label class="ml-auto inline-flex items-center gap-2 text-sm text-slate-500">Sort
+      <select data-field="sort" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">${Object.entries(SORTS).map(([k, [label]]) => `<option value="${k}" ${state.sort === k ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
+  </div>`;
+};
+
 const resultsHTML = () => {
   const list = filtered();
-  return `<div class="mt-8 flex items-baseline justify-between"><h3 class="text-lg font-bold">${state.category || 'Top-rated'} professionals</h3><span class="text-sm text-slate-500">${list.length} found</span></div>` +
+  return `<div class="mt-6 flex items-baseline justify-between"><h3 class="text-lg font-bold">${esc(state.category) || 'All'} professionals</h3><span class="text-sm text-slate-500">${list.length} found</span></div>` +
     (list.length === 0
-      ? `<div class="mt-4 bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500">No professionals match yet. Clear a filter or try a nearby area.</div>`
+      ? `<div class="mt-4 bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center text-slate-500">No professionals match these filters yet.<div><button data-action="clear" class="mt-3 rounded-xl bg-brand text-white font-bold px-5 py-2.5 text-sm hover:bg-brand-dark transition-colors">Clear all filters</button></div></div>`
       : `<div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${list.map((w) => workerCard(w)).join('')}</div>`);
 };
-const updateMarket = () => { $('#tiles').innerHTML = tilesHTML(); $('#results').innerHTML = resultsHTML(); };
+const updateMarket = () => {
+  $('#tiles').innerHTML = tilesHTML(); $('#toolbar').innerHTML = toolbarHTML(); $('#results').innerHTML = resultsHTML();
+  [['query', state.query], ['location', state.location]].forEach(([k, v]) => { const i = $(`[data-field="${k}"]`); if (i && i.value !== v) i.value = v; });
+};
 
 const marketplace = () => `
-  <section class="max-w-6xl mx-auto px-5 py-8 pop">
-    <h2 class="text-2xl sm:text-3xl font-extrabold">Who do you need today?</h2>
-    <div class="mt-4 bg-white rounded-2xl border border-slate-200 p-2 flex flex-col sm:flex-row gap-2">
-      <label class="flex-1 flex items-center gap-2 px-3 py-2">${icon('search', 18, 'text-brand')}<input data-field="query" value="${esc(state.query)}" placeholder="Search name or service" class="w-full outline-none"></label>
-      <label class="flex-1 flex items-center gap-2 px-3 py-2 sm:border-l border-slate-200">${icon('map-pin', 18, 'text-brand')}<input data-field="location" value="${esc(state.location)}" placeholder="Area or city" class="w-full outline-none"></label>
-    </div>
-    <div id="tiles" class="mt-6 grid grid-cols-2 sm:grid-cols-5 gap-3">${tilesHTML()}</div>
+  <div class="band">
+    <section class="max-w-6xl mx-auto px-5 py-10 text-white pop">
+      <p class="text-xs font-bold tracking-widest text-amber-rate uppercase">Find a professional</p>
+      <h2 class="mt-1 text-3xl sm:text-4xl font-extrabold">Who do you need today?</h2>
+      <p class="mt-2 text-white/80">Search by trade or name, then chat with the pro on WhatsApp.</p>
+      <div class="mt-5 bg-white rounded-2xl p-2 flex flex-col sm:flex-row gap-2 text-ink shadow-lg">
+        <label class="flex-1 flex items-center gap-2 px-3 py-2">${icon('search', 18, 'text-brand')}<input data-field="query" value="${esc(state.query)}" placeholder="Search name or service" class="w-full outline-none"></label>
+        <label class="flex-1 flex items-center gap-2 px-3 py-2 sm:border-l border-slate-200">${icon('map-pin', 18, 'text-brand')}<input data-field="location" value="${esc(state.location)}" placeholder="Area or city" class="w-full outline-none"></label>
+      </div>
+    </section>
+  </div>
+  <section class="max-w-6xl mx-auto px-5 py-8">
+    <div id="tiles" class="grid grid-cols-2 sm:grid-cols-5 gap-3">${tilesHTML()}</div>
+    <div id="toolbar" class="mt-6">${toolbarHTML()}</div>
     <div id="results">${resultsHTML()}</div>
   </section>`;
 
 const profileDetail = () => {
   const w = state.selected; const [a, b] = TINTS[w.tint % TINTS.length]; const ic = catIcon(w.category);
-  const tiles = (PORTFOLIO[w.category] || ['Project 1', 'Project 2', 'Project 3', 'Project 4', 'Project 5', 'Project 6']).map((t, i) => {
+  const tiles = PORTFOLIO[w.category].map((t, i) => {
     const [c1, c2] = TINTS[(w.tint + i) % TINTS.length];
     return `<figure class="relative aspect-[4/3] rounded-2xl overflow-hidden text-white" style="background:linear-gradient(135deg,${c1},${c2})">${icon(ic, 54, 'absolute -right-2 -bottom-2 opacity-20')}<figcaption class="absolute left-3 bottom-3 right-3 text-sm font-semibold drop-shadow">${t}</figcaption></figure>`;
   }).join('');
@@ -347,10 +407,10 @@ const profileDetail = () => {
           <div class="rounded-2xl bg-slate-50 py-3"><div class="font-extrabold text-lg flex justify-center items-center gap-1">${icon('clock', 16)}&lt;5m</div><div class="text-xs text-slate-500">Reply time</div></div>
         </div>
         <h3 class="mt-6 font-bold">About</h3><p class="mt-1 text-slate-600 leading-relaxed">${esc(w.bio)}</p>
-        <div class="mt-6 rounded-2xl bg-brand-soft p-4 flex items-center justify-between gap-3"><div><div class="font-bold text-brand">Not sure what to say?</div><div class="text-sm text-slate-600">Describe your job in 20 seconds. We write the WhatsApp message for you.</div></div><button data-action="brief" class="shrink-0 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-sm transition-colors">
-        Send job brief</button></div>
+        <div class="mt-6 rounded-2xl bg-brand-soft p-4 flex items-center justify-between gap-3"><div><div class="font-bold text-brand">Not sure what to say?</div><div class="text-sm text-slate-600">Describe your job in 20 seconds. We write the WhatsApp message for you.</div></div><button data-action="brief" class="shrink-0 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-sm transition-colors">Send job brief</button></div>
         <div class="mt-4 text-xs text-slate-500 leading-relaxed">ProConnect only connects you. Agree the price and the work with the pro directly. <button data-action="terms" class="underline hover:text-brand">Terms</button> · <a href="mailto:${SITE.email}?subject=${encodeURIComponent('Report profile: ' + w.name)}" class="underline hover:text-brand">Report this profile</a>
           <details class="mt-2"><summary class="cursor-pointer font-semibold text-slate-600">Safety tips</summary><ol class="mt-2 list-decimal pl-5 grid gap-1"><li>Agree on the work and price in writing on WhatsApp before starting.</li><li>Do not pay everything upfront.</li><li>Check the pro's previous work and ask for references.</li><li>Meet in a safe place, and tell someone when a stranger is coming to your home.</li><li>Report suspicious profiles to us.</li></ol></details></div>
+        <h3 class="mt-6 font-bold">Portfolio</h3><div class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3">${tiles}</div>
         <p class="mt-2 text-xs text-slate-400">Prototype tiles. Real photos will appear here once workers upload them.</p>
       </div>
     </div>
@@ -369,8 +429,8 @@ const dashboard = () => {
   <section class="max-w-6xl mx-auto px-5 py-8 grid lg:grid-cols-5 gap-6 pop">
     <div class="lg:col-span-3 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6">
       <h2 class="text-2xl font-extrabold">Create your public profile</h2>
-      <p class="text-slate-500 mt-1">Customers chat with you directly on WhatsApp. No commission, no middleman.</p> 
-            ${state.user ? `<p class="text-sm text-slate-500 mt-2">Linked to your account (${esc(state.user.email)}). <button data-action="account" class="font-semibold text-brand hover:underline">View account</button></p>` : ''}
+      <p class="text-slate-500 mt-1">Customers chat with you directly on WhatsApp. No commission, no middleman.</p>
+      ${state.user ? `<p class="text-sm text-slate-500 mt-2">Linked to your account (${esc(state.user.email)}). <button data-action="account" class="font-semibold text-brand hover:underline">View account</button></p>` : ''}
       <div class="mt-5 grid gap-4">
         <div class="inline-flex p-1 bg-slate-100 rounded-xl w-fit">
           ${['Personal', 'Business'].map((t) => `<button data-action="draft-type" data-type="${t}" class="px-4 py-2 rounded-lg text-sm font-semibold ${d.type === t ? 'bg-white shadow text-brand' : 'text-slate-500'}">${t} name</button>`).join('')}
@@ -380,11 +440,9 @@ const dashboard = () => {
         <div class="flex items-center gap-4">${avatar(draftWorker(), 72)}
           <label class="cursor-pointer inline-flex items-center gap-2 rounded-xl border border-dashed border-slate-400 px-4 py-2.5 text-sm font-semibold hover:bg-slate-50">${icon('upload', 18)} Upload photo
             <input type="file" accept="image/*" data-file="photo" class="hidden"></label></div>
-                <div><div class="text-sm font-semibold mb-2">Category</div><div class="flex flex-wrap gap-2">
+        <div><div class="text-sm font-semibold mb-2">Category</div><div class="flex flex-wrap gap-2">
           ${CATEGORIES.map(({ name, icon: ic }) => `<button data-action="draft-cat" data-name="${name}" class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold border ${d.category === name ? 'bg-brand text-white border-brand' : 'border-slate-300 hover:border-brand/50'}">${icon(ic, 15)}${name}</button>`).join('')}
-          <button data-action="draft-other" class="inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold border ${isOther(d) ? 'bg-brand text-white border-brand' : 'border-slate-300 hover:border-brand/50'}">${icon('briefcase', 15)}Other</button>
-        </div>
-        ${isOther(d) ? `<input data-field="draft.category" value="${esc(d.category)}" maxlength="40" list="cat-ideas" placeholder="Type your category, e.g. Graphic Designer" class="${input} mt-3"><datalist id="cat-ideas">${CAT_IDEAS.map((c) => `<option value="${c}">`).join('')}</datalist>` : ''}</div>
+        </div></div>
         <div class="grid sm:grid-cols-2 gap-4">
           <label class="grid gap-1 text-sm font-semibold">Service area<input class="${input}" data-field="draft.area" value="${esc(d.area)}" placeholder="e.g. Kumasi – Ahodwo"></label>
           <label class="grid gap-1 text-sm font-semibold">WhatsApp number<input class="${input}" inputmode="tel" data-field="draft.phone" value="${esc(d.phone)}" placeholder="024 000 0000"></label>
@@ -392,7 +450,7 @@ const dashboard = () => {
         <label class="grid gap-1 text-sm font-semibold">Years of experience<input type="number" min="0" class="${input}" data-field="draft.years" value="${esc(d.years)}"></label>
         <label class="grid gap-1 text-sm font-semibold">Short bio<textarea rows="3" class="${input}" data-field="draft.bio" placeholder="What you do best and how you work.">${esc(d.bio)}</textarea></label>
         <button id="publish" data-action="publish" class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 inline-flex items-center justify-center gap-2 transition-colors" ${draftReady() ? '' : 'disabled'}>${icon('check', 18)} ${state.busy === 'save' ? 'Saving…' : state.myProfile ? 'Save changes' : 'Publish profile'}</button>
-              <p id="hint" class="text-xs text-slate-500 -mt-2 ${draftReady() ? 'hidden' : ''}">Add your name, service area and a WhatsApp number to publish.</p>
+        <p id="hint" class="text-xs text-slate-500 -mt-2 ${draftReady() ? 'hidden' : ''}">Add your name, service area and a WhatsApp number to publish.</p>
       </div>
     </div>
     <aside class="lg:col-span-2"><div class="lg:sticky lg:top-20">
@@ -519,8 +577,9 @@ function render() {
   $('#app').innerHTML =
     (s !== 'landing' ? header() : '') +
     (s === 'landing' ? landing() : s === 'market' ? marketplace() : s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : s === 'terms' ? termsScreen() : dashboard()) + bottomNav() + briefSheet();
+  afterRender();
 }
-function go(screen) { state.brief = null; state.screen = screen; render(); window.scrollTo(0, 0); } 
+function go(screen) { state.brief = null; state.screen = screen; render(); window.scrollTo(0, 0); }
 function setRole(r) {
   if (r === 'worker' && !state.user) {
     state.role = 'customer';
@@ -529,6 +588,7 @@ function setRole(r) {
   }
   state.role = r; go(r === 'worker' ? 'dashboard' : 'market');
 }
+
 /* ---------- Events (one listener per type, using data-attributes) ---------- */
 document.addEventListener('click', (e) => {
   if (e.target.closest('a')) return;                     // let WhatsApp / call links work normally
@@ -546,9 +606,12 @@ document.addEventListener('click', (e) => {
     case 'category': state.category = state.category === d.name ? '' : d.name; updateMarket(); break;
     case 'open': state.selected = state.workers.find((w) => w.id === +d.id); go('profile'); break;
     case 'back': go('market'); break;
+    case 'city': state.location = state.location.toLowerCase() === d.name.toLowerCase() ? '' : d.name; updateMarket(); break;
+    case 'verified': state.verifiedOnly = !state.verifiedOnly; updateMarket(); break;
+    case 'rating': state.minRating = state.minRating ? 0 : 4.8; updateMarket(); break;
+    case 'clear': state.category = ''; state.query = ''; state.location = ''; state.verifiedOnly = false; state.minRating = 0; updateMarket(); break;
     case 'draft-type': state.draft.type = d.type; render(); break;
     case 'draft-cat': state.draft.category = d.name; render(); break;
-    case 'draft-other': state.draft.category = ''; render(); setTimeout(() => { const i = document.querySelector('[data-field="draft.category"]'); if (i) i.focus(); }); break;
     case 'publish': saveProfile(); break;
     case 'brief': state.brief = { kind: BRIEF_KINDS[0], when: BRIEF_WHEN[0], area: state.location || '', note: '' }; render(); break;
     case 'brief-close': state.brief = null; render(); break;
@@ -564,14 +627,15 @@ document.addEventListener('click', (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && state.brief) { state.brief = null; render(); return; }
- const el = e.target.closest && e.target.closest('[data-action="open"]');
+  if (e.key === 'Escape' && state.brief) { state.brief = null; render(); return; }
+  const el = e.target.closest && e.target.closest('[data-action="open"]');
   if (el && e.key === 'Enter') el.click();
 });
 document.addEventListener('input', (e) => {
   const f = e.target.dataset && e.target.dataset.field; if (!f) return;
   const v = e.target.value;
   if (f === 'query' || f === 'location') { state[f] = v; updateMarket(); }
+  else if (f === 'sort') { state.sort = v; updateMarket(); }
   else if (f.startsWith('brief.')) { state.brief[f.split('.')[1]] = v; updateBrief(); }
   else if (f.startsWith('landing.')) state.landing[f.split('.')[1]] = v;
   else if (f.startsWith('draft.')) {
@@ -592,7 +656,6 @@ document.addEventListener('submit', (e) => {
   if (kind === 'landing') { state.query = state.landing.svc; state.location = state.landing.loc; setRole('customer'); }
   if (kind === 'auth') submitAuth(f);
   if (kind === 'account') saveAccount(f);
-
 });
 
 render();
