@@ -120,6 +120,7 @@ const authScreen = () => {
       ${su ? field('Full name', 'name', 'text', 'autocomplete="name"') + field('Phone / WhatsApp', 'phone', 'tel', 'autocomplete="tel"') : ''}
       ${field('Email', 'email', 'email', 'autocomplete="email"')}
       ${field('Password', 'password', 'password', `minlength="6" autocomplete="${su ? 'new-password' : 'current-password'}"`)}
+      ${su ? `<label class="flex items-start gap-2 text-sm text-slate-600"><input type="checkbox" name="agree" required class="mt-1"><span>I agree to the <button type="button" data-action="terms" class="font-semibold text-brand hover:underline">Terms of Service</button>.</span></label>` : ''}
       ${a.error ? `<p class="text-sm text-red-600" role="alert">${esc(a.error)}</p>` : ''}
       ${a.info ? `<p class="text-sm text-emerald-700" role="status">${esc(a.info)}</p>` : ''}
       <button class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold py-3.5 transition-colors" ${state.busy === 'auth' ? 'disabled' : ''}>${state.busy === 'auth' ? 'Please wait…' : su ? 'Sign up' : 'Log in'}</button>
@@ -289,7 +290,7 @@ const landing = () => `
       <button data-action="role" data-role="worker" class="shrink-0 rounded-xl bg-amber-rate hover:brightness-95 text-ink font-bold px-7 py-3.5 transition">Join as a worker</button>
     </div>
   </section>
-  <footer class="text-center text-sm text-slate-400 pb-10">ProConnect · Find trusted local experts</footer>`;
+   <footer class="text-center text-sm text-slate-400 pb-10 px-5">ProConnect · Find trusted local experts · <button data-action="terms" class="underline hover:text-brand">Terms of Service</button><p class="mt-1">ProConnect is free for now. We only connect you to professionals.</p></footer>`;
 
 const filtered = () => state.workers.filter((w) =>
   (!state.category || w.category === state.category) &&
@@ -346,8 +347,10 @@ const profileDetail = () => {
           <div class="rounded-2xl bg-slate-50 py-3"><div class="font-extrabold text-lg flex justify-center items-center gap-1">${icon('clock', 16)}&lt;5m</div><div class="text-xs text-slate-500">Reply time</div></div>
         </div>
         <h3 class="mt-6 font-bold">About</h3><p class="mt-1 text-slate-600 leading-relaxed">${esc(w.bio)}</p>
-        <div class="mt-6 rounded-2xl bg-brand-soft p-4 flex items-center justify-between gap-3"><div><div class="font-bold text-brand">Not sure what to say?</div><div class="text-sm text-slate-600">Describe your job in 20 seconds. We write the WhatsApp message for you.</div></div><button data-action="brief" class="shrink-0 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-sm transition-colors">Send job brief</button></div>
-        <h3 class="mt-6 font-bold">Portfolio</h3><div class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3">${tiles}</div>
+        <div class="mt-6 rounded-2xl bg-brand-soft p-4 flex items-center justify-between gap-3"><div><div class="font-bold text-brand">Not sure what to say?</div><div class="text-sm text-slate-600">Describe your job in 20 seconds. We write the WhatsApp message for you.</div></div><button data-action="brief" class="shrink-0 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-sm transition-colors">
+        Send job brief</button></div>
+        <div class="mt-4 text-xs text-slate-500 leading-relaxed">ProConnect only connects you. Agree the price and the work with the pro directly. <button data-action="terms" class="underline hover:text-brand">Terms</button> · <a href="mailto:${SITE.email}?subject=${encodeURIComponent('Report profile: ' + w.name)}" class="underline hover:text-brand">Report this profile</a>
+          <details class="mt-2"><summary class="cursor-pointer font-semibold text-slate-600">Safety tips</summary><ol class="mt-2 list-decimal pl-5 grid gap-1"><li>Agree on the work and price in writing on WhatsApp before starting.</li><li>Do not pay everything upfront.</li><li>Check the pro's previous work and ask for references.</li><li>Meet in a safe place, and tell someone when a stranger is coming to your home.</li><li>Report suspicious profiles to us.</li></ol></details></div>
         <p class="mt-2 text-xs text-slate-400">Prototype tiles. Real photos will appear here once workers upload them.</p>
       </div>
     </div>
@@ -460,13 +463,62 @@ const briefSheet = () => {
     </div>
   </div>`;
 };
+
+/* ---------- Terms of Service ---------- */
+/* FILL THESE IN before you publish */
+const SITE = {
+  updated: '21 November 2026',
+  contact: 'REPLACE THIS: your email or WhatsApp number',
+  email: 'REPLACE-THIS@example.com',
+  verifiedMeans: 'REPLACE THIS: describe exactly what you check, for example their ID card',
+};
+const TERMS = [
+  { h: 'What ProConnect is', p: [`ProConnect is a free online directory that helps people find local professionals and contact them directly, mainly through WhatsApp. We only make the introduction. We are a gateway. We are not a contractor, employer, agent, insurer or payment handler.`] },
+  { h: 'We are only the gateway', ul: [
+    `Any job, agreement, price, schedule, payment or contract is strictly between the customer and the professional. ProConnect is not part of it.`,
+    `We do not supervise or guarantee the quality, safety, legality, timing or pricing of any work. We also do not guarantee that a professional will show up or that a customer will pay.`,
+    `Any problem that happens outside ProConnect is between the people involved. That includes poor workmanship, damage, injury, theft, no-shows, non-payment, disputes, scams, and anything said or done on WhatsApp, by phone or in person. We cannot settle, refund or compensate for these.`,
+    `Profiles are written by the professionals themselves. We do not promise they are accurate.`] },
+  { h: 'Free for now', p: [`ProConnect is free to use today. We may add optional donations and, in future, paid features. If we ever introduce charges, we will tell users first and will not charge anything without your clear agreement. "Free for now" does not mean "free forever".`] },
+  { h: 'Donations', p: [`Donations will be optional and voluntary. They help pay for running costs such as hosting, development and support. A donation is a gift, not payment for a service. It does not buy special treatment, higher ranking or a Verified badge. Payments will be handled by Paystack under Paystack's own terms.`] },
+  { h: 'Who may use ProConnect', p: [`You must be 18 or older. If you are under 18, please use ProConnect only with a parent or guardian, and do not create a worker profile.`] },
+  { h: 'Accounts', p: [`You can browse without an account. You need an account to create a worker profile. Give accurate information, keep your password private, and understand that you are responsible for what happens under your account. One profile per person or business.`] },
+  { h: 'For professionals', ul: [
+    `Your profile is public. It shows your name, category, area, photo, bio and WhatsApp number, and by publishing it you agree that people may contact you.`,
+    `Be truthful about your skills, experience and qualifications, and hold any licence or permit your trade needs.`,
+    `Do not use someone else's name, photos or work as your own.`,
+    `You set your own prices and terms. You are responsible for the quality, safety, insurance and taxes of your work.`] },
+  { h: 'For customers', p: [`Check the professional before you hire. Agree the work, price and timing before anything starts, and keep it in writing on WhatsApp. Avoid paying everything upfront. Take sensible care when you let someone into your home or meet someone in person.`] },
+  { h: 'The Verified badge', p: [`Verified means ${SITE.verifiedMeans}. It is not a guarantee of quality, honesty or ability.`] },
+  { h: 'Ratings and reviews', p: [`When we add reviews, they must be honest and based on real experience. We may remove fake, abusive or misleading reviews.`] },
+  { h: 'What is not allowed', p: [`Fake or misleading profiles, pretending to be someone else, scams or fraud, illegal services, harassment or abuse, hateful, sexual or violent content, spam, copying data from the site, and anything meant to harm or disrupt it.`] },
+  { h: 'Your content', p: [`You keep ownership of what you upload, such as photos and text. You give ProConnect a free, non-exclusive right to display it on the site, and in previews of it, so that we can run and promote the service. Only upload things you have the right to use.`] },
+  { h: 'Other services', p: [`WhatsApp, Paystack, our hosting provider and other third parties have their own terms and privacy rules. We are not responsible for them.`] },
+  { h: 'Privacy', p: [`We collect only what we need: account details (name, email, phone), profile details and photos. Worker profile details are public. We do not sell personal data. Our Privacy Policy gives the full details, including how to ask us to correct or delete your information. We will handle personal data in line with Ghana's Data Protection Act, 2012 (Act 843).`] },
+  { h: 'Removal and suspension', p: [`We may remove content or suspend accounts that break these terms or put others at risk, sometimes without warning. You can delete your profile at any time.`] },
+  { h: 'No warranty and limit of liability', p: [`ProConnect is provided "as is" and "as available". It may be interrupted or contain errors. To the fullest extent the law allows, ProConnect and its owner(s) are not liable for any loss, damage, injury or expense arising from using the site or from any dealings between users. Nothing here removes any right or liability that the law does not allow to be removed.`] },
+  { h: 'Changes', p: [`We may update these terms. The date above will change, and continuing to use ProConnect means you accept the update.`] },
+  { h: 'Governing law', p: [`These terms are governed by the laws of Ghana.`] },
+  { h: 'Contact', p: [`${SITE.contact}`] },
+];
+const termsScreen = () => `
+  <section class="max-w-3xl mx-auto px-5 py-8 pop">
+    <button data-action="terms-back" class="inline-flex items-center gap-1 text-slate-600 font-semibold hover:text-brand">${icon('arrow-left', 18)} Back</button>
+    <article class="mt-4 bg-white rounded-3xl border border-slate-200 p-6 sm:p-10">
+      <h1 class="text-3xl font-extrabold">ProConnect Terms of Service</h1>
+      <p class="mt-1 text-sm text-slate-500">Last updated: ${esc(SITE.updated)}</p>
+      <div class="mt-6 grid gap-6">
+        ${TERMS.map((s, i) => `<section><h2 class="text-lg font-bold">${i + 1}. ${s.h}</h2>${(s.p || []).map((t) => `<p class="mt-2 text-slate-600 leading-relaxed">${t}</p>`).join('')}${s.ul ? `<ul class="mt-2 list-disc pl-5 grid gap-1.5 text-slate-600 leading-relaxed">${s.ul.map((t) => `<li>${t}</li>`).join('')}</ul>` : ''}</section>`).join('')}
+      </div>
+    </article>
+  </section>`;
+
 /* ---------- Render ---------- */
 function render() {
   const s = state.screen;
   $('#app').innerHTML =
     (s !== 'landing' ? header() : '') +
-    (s === 'landing' ? landing() : s === 'market' ? marketplace() : s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : dashboard()) + bottomNav() + briefSheet();
-  afterRender();
+    (s === 'landing' ? landing() : s === 'market' ? marketplace() : s === 'profile' ? profileDetail() : s === 'auth' ? authScreen() : s === 'account' ? accountScreen() : s === 'terms' ? termsScreen() : dashboard()) + bottomNav() + briefSheet();
 }
 function go(screen) { state.brief = null; state.screen = screen; render(); window.scrollTo(0, 0); } 
 function setRole(r) {
@@ -503,6 +555,12 @@ document.addEventListener('click', (e) => {
     case 'brief-kind': state.brief.kind = d.v; render(); break;
     case 'brief-when': state.brief.when = d.v; render(); break;
     case 'noop': break;
+    case 'terms': {
+      const af = document.querySelector('[data-form="auth"]');
+      if (af) { const v = Object.fromEntries(new FormData(af)); state.auth.values = { name: v.name, phone: v.phone, email: v.email }; }
+      state.prev = state.screen; go('terms'); break;
+    }
+    case 'terms-back': go(state.prev || 'landing'); break;
   }
 });
 document.addEventListener('keydown', (e) => {
