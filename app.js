@@ -305,7 +305,7 @@ const landing = () => `
       <div class="md:col-span-2 band rounded-3xl text-white p-8 flex flex-col justify-center">
         <div class="text-xs font-bold tracking-widest text-amber-rate uppercase">First month free</div>
         <div class="mt-3 flex items-end gap-2"><span class="text-5xl font-extrabold">${ghs(PLAN.price)}</span><span class="pb-1 text-white/70">per month</span></div>
-        <p class="mt-2 text-white/80">After your free month. Cancel any time.</p>
+        <p class="mt-2 text-white/80">After your free month. Pay month by month, no contract.</p>
         <button data-action="role" data-role="worker" class="mt-6 rounded-xl bg-amber-rate hover:brightness-95 text-ink font-bold px-6 py-3.5 transition">Start your free month</button>
       </div>
       <div class="md:col-span-3 bg-white rounded-3xl border border-slate-200 p-8">
@@ -325,6 +325,7 @@ const landing = () => `
          ['How much does ProConnect cost?', `It is free for customers. Professionals pay ${ghs(PLAN.price)} per month, and every new professional gets their first month free.`],
          ['Does ProConnect take a commission?', 'No. Professionals pay a flat monthly subscription. You and the professional agree the job and the price between yourselves.'],
          ['What are Blazes, ratings and testimonials?', 'After a job, a professional can send you a private link. You can give a Blaze (a fire reaction for great work), a star rating, a testimonial, or all three.'],
+         ['How do professionals pay?', `Once a month, by mobile money or card. Nothing renews automatically, so you only pay when you choose to. If you skip a month, your profile is hidden from search until you pay again.`],
          ['What does the Verified badge mean?', 'Pros with the Verified badge have had their details checked by us. Always agree the price and the work before it starts.'],
          ['I am a tradesperson or creative. How do I join?', `Tap I am a Worker, sign up and create your profile. Your first month is free, then it is ${ghs(PLAN.price)} per month. Choose one of the main categories or type your own, such as Graphic Design or Video Editing.`],
          ['Is payment for jobs handled on ProConnect?', 'No. Agree on payment directly with the pro, and keep your chat on WhatsApp as a record of what was agreed.']]
@@ -560,11 +561,11 @@ const briefSheet = () => {
 /* ---------- Terms of Service ---------- */
 /* FILL THESE IN before you publish */
 const SITE = {
-  updated: '21 November 2026',
+  updated: '22 November 2026',
   contact: 'REPLACE THIS: your email or WhatsApp number',
   email: 'REPLACE-THIS@example.com',
   verifiedMeans: 'REPLACE THIS: describe exactly what you check, for example their ID card',
-  renewal: 'REPLACE THIS: say whether the subscription renews automatically or the professional pays each month',
+  renewal: 'Subscriptions do not renew automatically. Each month the professional pays to keep their profile live, for example by mobile money. We may send a reminder before the paid period ends',
   refunds: 'REPLACE THIS: write your refund policy',
 };
 const TERMS = [
@@ -579,8 +580,7 @@ const TERMS = [
     `Professionals pay a subscription of ${ghs(PLAN.price)} per month to keep a public profile on ProConnect.`,
     `Every new professional gets their first month free. Billing starts after the free month ends.`,
     `${SITE.renewal}.`,
-    `You can cancel at any time. Your profile stays live until the end of the period you have already paid for.`,
-    `If a payment is missed or a subscription is cancelled, your profile may be hidden from search until the subscription is active again.`,
+    `There is nothing to cancel. If you do not pay for the next month, your profile is hidden from search when your paid period ends, and it shows again once you pay.`,
     `Refunds: ${SITE.refunds}.`,
     `We may change the price. We will tell subscribers before a new price applies to them.`,
     `Subscription payments are handled by Paystack under Paystack's own terms. We never see or store your card or mobile money details.`,
@@ -626,8 +626,7 @@ const softError = (e, msg) => (e.message === 'NOT_CONNECTED' ? msg : e.message);
 /* Your developer connects these two objects to the real backend. Every function returns a Promise. */
 const BILLING = {
   getStatus: () => Promise.resolve(null),   // resolve { status: 'trial' | 'active' | 'expired', endsAt: '2026-12-21' } for the logged-in professional
-  subscribe: () => NOT_CONNECTED(),         // open checkout for the monthly plan, then resolve the new { status, endsAt }
-  cancel: () => NOT_CONNECTED(),            // resolve the updated { status, endsAt }
+  pay: () => NOT_CONNECTED(),               // open the checkout for ONE month (GH₵20, mobile money or card). When the server has confirmed the payment, resolve the new { status, endsAt }
 };
 const REVIEWS = {
   createInvite: (/* { clientName } */) => NOT_CONNECTED(),   // make a single-use token on the server, resolve { token }
@@ -646,10 +645,10 @@ const planCard = () => {
   const s = state.sub; const left = s && s.endsAt ? Math.max(0, Math.ceil((new Date(s.endsAt) - Date.now()) / 864e5)) : 0;
   const date = s && s.endsAt ? new Date(s.endsAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
   const btn = (action, label, solid) => `<button data-action="${action}" class="mt-3 rounded-xl ${solid ? 'bg-brand hover:bg-brand-dark text-white' : 'border-2 border-brand text-brand hover:bg-brand-soft'} font-bold px-5 py-2.5 text-sm transition-colors">${label}</button>`;
-  let head = 'Your plan', body = `Your first month is free. After that it is ${ghs(PLAN.price)} per month to keep your profile live.`, act = '';
-  if (s && s.status === 'trial') { head = `Free month: ${left} ${left === 1 ? 'day' : 'days'} left`; body = `Your profile is live. After your free month it is ${ghs(PLAN.price)} per month.`; act = btn('bill-subscribe', `Subscribe now (${ghs(PLAN.price)})`, false); }
-  if (s && s.status === 'active') { head = 'Subscription active'; body = `Paid until ${date}.`; act = `<button data-action="bill-cancel" class="mt-3 text-sm font-semibold text-slate-500 hover:underline">Cancel subscription</button>`; }
-  if (s && s.status === 'expired') { head = 'Subscription ended'; body = 'Your profile is hidden from search until you renew.'; act = btn('bill-subscribe', `Renew for ${ghs(PLAN.price)}`, true); }
+  let head = 'Your plan', body = `Your first month is free. After that, pay ${ghs(PLAN.price)} each month to keep your profile live.`, act = '';
+  if (s && s.status === 'trial') { head = `Free month: ${left} ${left === 1 ? 'day' : 'days'} left`; body = `Your profile is live. When the free month ends, pay ${ghs(PLAN.price)} each month to keep it live.`; act = btn('bill-pay', `Add a month (${ghs(PLAN.price)})`, false); }
+  if (s && s.status === 'active') { head = 'Profile live'; body = `Paid until ${date}. Pay again before then to keep your profile live.`; act = btn('bill-pay', `Add a month (${ghs(PLAN.price)})`, false); }
+  if (s && s.status === 'expired') { head = 'Payment needed'; body = 'Your profile is hidden from search until you pay.'; act = btn('bill-pay', `Pay ${ghs(PLAN.price)}`, true); }
   return `<div class="rounded-3xl bg-brand-soft border border-brand/10 p-5"><div class="text-xs font-bold tracking-widest text-brand uppercase">For professionals</div><h3 class="mt-1 text-lg font-bold">${head}</h3><p class="mt-1 text-sm text-slate-600">${body}</p>${act}</div>`;
 };
 
@@ -670,7 +669,7 @@ const inviteCard = () => {
 };
 
 async function billAct(kind) {
-  try { state.sub = await BILLING[kind](); toast(kind === 'subscribe' ? 'Subscription updated.' : 'Subscription cancelled.'); }
+  try { state.sub = await BILLING[kind](); toast('Payment confirmed. Thank you!'); }
   catch (e) { toast(softError(e, 'Billing is not connected yet.')); }
   render();
 }
@@ -760,8 +759,7 @@ document.addEventListener('click', (e) => {
     case 'category': state.category = state.category === d.name ? '' : d.name; updateMarket(); break;
     case 'open': state.selected = state.workers.find((w) => w.id === +d.id); go('profile'); break;
     case 'back': go('market'); break;
-    case 'bill-subscribe': billAct('subscribe'); break;
-    case 'bill-cancel': if (confirm('Cancel your subscription?')) billAct('cancel'); break;
+    case 'bill-pay': billAct('pay'); break;
     case 'invite-create': createInvite(); break;
     case 'invite-copy': copyInvite(); break;
     case 'rv-blaze': state.review.blaze = !state.review.blaze; render(); break;
@@ -825,4 +823,3 @@ document.addEventListener('submit', (e) => {
 render();
 window.addEventListener('hashchange', routeFromHash); routeFromHash();
 AUTH.restoreSession().then(async (u) => { if (u) { await startSession(u); render(); } }).catch(() => {});
-   
