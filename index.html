@@ -20,11 +20,26 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script>
+(() => {
+  try {
+    const saved = localStorage.getItem('proconnect_theme');
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const isDark = saved ? saved === 'dark' : prefersDark;
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+      const m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.setAttribute('content', '#0B1220');
+    }
+  } catch {}
+})();
+</script>
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
 <div id="app"></div>
-<div id="toast" role="status" class="hidden pop fixed top-20 left-1/2 -translate-x-1/2 z-30 bg-ink text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl max-w-[90vw] text-center"></div>
+<div id="toast" role="status" class="hidden pop fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-ink text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl max-w-[90vw] text-center"></div>
+<script src="https://js.paystack.co/v2/inline.js" defer></script>
 <script src="app.js"></script>
 </body>
 </html>
