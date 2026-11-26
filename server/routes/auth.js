@@ -186,6 +186,37 @@ function createAuthRouter(db, uploadsDir) {
     });
   });
 
+  meRouter.post('/password', requireUser, authLimiter, (req, res) => {
+    const currentPassword = String(req.body?.currentPassword ?? '');
+    const newPassword = String(req.body?.newPassword ?? '');
+    if (!currentPassword) {
+      return res.status(400).json({ error: 'Please enter your current password.' });
+    }
+    if (newPassword.length < 6 || newPassword.length > 128) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+    }
+
+    const row = db.prepare('SELECT id, password_hash FROM users WHERE id = ?').get(req.user.id);
+    if (!row || !verifyPassword(currentPassword, row.password_hash)) {
+      return res.status(401).json({ error: 'Current password is incorrect.' });
+    }
+
+    const nowIso = new Date().toISOString();
+    const newHash = hashPassword(newPassword);
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?').run(newHash, nowIso, req.user.id);
+      db.prepare('DELETE FROM sessions WHERE user_id = ?').run(req.user.id);
+      db.exec('COMMIT');
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
+
+    createSession(res, req.user.id);
+    res.json({ ok: true });
+  });
+
   meRouter.get('/export', requireUser, (req, res) => {
     const userRow = db.prepare(
       'SELECT id, name, phone, email, terms_accepted_at, terms_version, trial_claimed_at, created_at, updated_at FROM users WHERE id = ?'

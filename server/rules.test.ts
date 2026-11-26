@@ -320,6 +320,25 @@ test('Full HTTP API acceptance flows (auth, worker, repeat-trial block, custom c
     assert.equal(exported.data.account.email, 'kofi@example.com');
     assert.equal(exported.data.payments.length, 1);
 
+    // Authenticated password change rejects wrong current password, rotates session, and updates login
+    const badPw = await apiFetch('/api/me/password', {
+      method: 'POST',
+      body: { currentPassword: 'wrongpass', newPassword: 'newpassword123' },
+    });
+    assert.equal(badPw.status, 401);
+
+    const goodPw = await apiFetch('/api/me/password', {
+      method: 'POST',
+      body: { currentPassword: 'password123', newPassword: 'newpassword123' },
+    });
+    assert.equal(goodPw.status, 200);
+
+    const relogin = await apiFetch('/api/auth/login', {
+      method: 'POST',
+      body: { email: 'kofi@example.com', password: 'newpassword123' },
+    });
+    assert.equal(relogin.status, 200);
+
     // 5. Admin bootstrap, login, verify worker, hide when expired
     const boot = await apiFetch('/api/admin/bootstrap', { method: 'POST', body: { passcode: 'adminpass123' } });
     assert.equal(boot.status, 201);
