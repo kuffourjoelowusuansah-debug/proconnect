@@ -1,14 +1,26 @@
 /* ===== Loader / splash screen (runs first so it shows right away) ===== */
 (() => {
   if (!document.querySelector('link[rel~="icon"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="icon" href="logo-icon.png">');
+  const L = window.NKABOM_LOADERS;
+  const steps = L && L.getSplashSteps ? L.getSplashSteps() : ['Finding trusted pros near you'];
   const el = document.createElement('div');
   el.className = 'splash';
   el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = '<div class="splash-inner"><img src="logo-white.png" alt="" class="splash-logo" onerror="this.style.display=\'none\'"><div class="splash-name">ProConnect</div><div class="splash-tag">Finding trusted pros near you</div><div class="splash-bar"><span></span></div></div>';
+  el.innerHTML = `<div class="splash-inner"><img src="logo-white.png" alt="" class="splash-logo" onerror="this.style.display='none'"><div class="splash-name">Nkabom</div><div id="splash-tag" class="splash-tag pc-step-fade">${steps[0]}</div><div class="splash-bar"><span></span></div></div>`;
   document.body.appendChild(el);
-  const hide = () => { el.classList.add('hide'); setTimeout(() => el.remove(), 700); };
+  let idx = 0;
+  const tagEl = el.querySelector('#splash-tag');
+  const stepTimer = setInterval(() => {
+    if (!tagEl || !document.body.contains(el)) { clearInterval(stepTimer); return; }
+    idx = (idx + 1) % steps.length;
+    tagEl.classList.remove('pc-step-fade');
+    void tagEl.offsetWidth;
+    tagEl.textContent = steps[idx];
+    tagEl.classList.add('pc-step-fade');
+  }, 520);
+  const hide = () => { clearInterval(stepTimer); el.classList.add('hide'); setTimeout(() => el.remove(), 700); };
   const t0 = Date.now();
-  const done = () => setTimeout(hide, Math.max(0, 800 - (Date.now() - t0)));
+  const done = () => setTimeout(hide, Math.max(0, 950 - (Date.now() - t0)));
   if (document.readyState === 'complete') done(); else window.addEventListener('load', done);
   setTimeout(hide, 4000);
 })();
@@ -48,10 +60,19 @@ const ICONS = {
  "menu": "<line x1=\"4\" x2=\"20\" y1=\"6\" y2=\"6\" /> <line x1=\"4\" x2=\"20\" y1=\"12\" y2=\"12\" /> <line x1=\"4\" x2=\"20\" y1=\"18\" y2=\"18\" />",
  "x": "<path d=\"M18 6 6 18\" /> <path d=\"m6 6 12 12\" />",
  "log-out": "<path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\" /> <polyline points=\"16 17 21 12 16 7\" /> <line x1=\"21\" x2=\"9\" y1=\"12\" y2=\"12\" />",
- "send": "<path d=\"m22 2-7 20-4-9-9-4Z\" /> <path d=\"M22 2 11 13\" />"
+ "send": "<path d=\"m22 2-7 20-4-9-9-4Z\" /> <path d=\"M22 2 11 13\" />",
+ "bookmark": "<path d=\"m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z\" />",
+ "qr-code": "<rect width=\"5\" height=\"5\" x=\"3\" y=\"3\" rx=\"1\" /> <rect width=\"5\" height=\"5\" x=\"16\" y=\"3\" rx=\"1\" /> <rect width=\"5\" height=\"5\" x=\"3\" y=\"16\" rx=\"1\" /> <path d=\"M21 16h-3a2 2 0 0 0-2 2v3\" /> <path d=\"M21 21v.01\" /> <path d=\"M12 7v3a2 2 0 0 1-2 2H7\" /> <path d=\"M3 12h.01\" /> <path d=\"M12 3h.01\" /> <path d=\"M12 16v.01\" /> <path d=\"M16 12h1\" /> <path d=\"M21 12v.01\" /> <path d=\"M12 21v-1\" />",
+ "download": "<path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /> <polyline points=\"7 10 12 15 17 10\" /> <line x1=\"12\" x2=\"12\" y1=\"15\" y2=\"3\" />",
+ "trending-up": "<polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\" /> <polyline points=\"16 7 22 7 22 13\" />",
+ "camera": "<path d=\"M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z\" /> <circle cx=\"12\" cy=\"13\" r=\"3\" />",
+ "mic": "<path d=\"M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z\" /> <path d=\"M19 10v2a7 7 0 0 1-14 0v-2\" /> <line x1=\"12\" x2=\"12\" y1=\"19\" y2=\"22\" />",
+ "video": "<path d=\"m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5\" /> <rect x=\"2\" y=\"6\" width=\"14\" height=\"12\" rx=\"2\" />",
+ "plus": "<path d=\"M5 12h14\" /> <path d=\"M12 5v14\" />",
+ "tag": "<path d=\"M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z\" /> <path d=\"M7 7h.01\" />"
 };
 
-/* ===== ProConnect: plain JavaScript app ===== */
+/* ===== Nkabom: plain JavaScript app ===== */
 const icon = (name, size = 18, cls = '') =>
   `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${ICONS[name] || ICONS.briefcase}</svg>`;
 
@@ -65,10 +86,22 @@ const CATEGORIES = [
   { name: 'Carpentry', icon: 'hammer' }, { name: 'Painting', icon: 'paint-bucket' },
   { name: 'Masonry', icon: 'layers' },
 ];
-const TINTS = [['#1F3A5F', '#3B6FB6'], ['#0F766E', '#34D399'], ['#9A3412', '#FB923C'], ['#6D28D9', '#A78BFA'], ['#BE123C', '#FB7185'], ['#0369A1', '#38BDF8']];
+const TINTS = [['#B45309', '#F59E0B'], ['#0F766E', '#34D399'], ['#9A3412', '#FB923C'], ['#C2410C', '#FDBA74'], ['#BE123C', '#FB7185'], ['#78350F', '#D97706']];
 
 /* ---------- State ---------- */
-const freshDraft = () => ({ type: 'Personal', name: '', category: 'Plumbing', area: '', phone: '', years: 3, bio: '', photo: null, portfolio: [] });
+const loadLocalSavedIds = () => {
+  try {
+    const raw = JSON.parse(localStorage.getItem('nkabom_saved') || '[]');
+    return Array.isArray(raw) ? raw.filter((v) => typeof v === 'string' && v).slice(0, 50) : [];
+  } catch {
+    return [];
+  }
+};
+const saveLocalSavedIds = (ids) => {
+  try { localStorage.setItem('nkabom_saved', JSON.stringify(ids.slice(0, 50))); } catch {}
+};
+
+const freshDraft = () => ({ type: 'Personal', name: '', category: 'Plumbing', area: '', phone: '', years: 3, bio: '', availability: 'available', rateNote: '', photo: null, portfolio: [] });
 const state = {
   screen: 'landing',
   role: 'customer',
@@ -84,6 +117,9 @@ const state = {
   workersTotalPages: 1,
   workersLoading: false,
   workersError: '',
+  dashboardLoading: false,
+  accountLoading: false,
+  searchPulse: false,
   marketCache: null,
   marketSeq: 0,
   marketController: null,
@@ -96,16 +132,26 @@ const state = {
   landing: { svc: '', loc: '' },
   landingTab: 'customer',
   landingBrief: { category: 'Plumbing', kind: 'Fix a problem', when: 'Today', area: 'East Legon, Accra' },
+  sessionBrief: null,
   theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
   menuOpen: false,
   showPw: false,
   showAcctPw: false,
   verifiedOnly: false,
+  availableOnly: false,
+  savedOnly: false,
   minRating: 0,
   sort: 'rating',
+  savedIds: loadLocalSavedIds(),
+  savedWorkers: [],
+  compareOpen: false,
+  qrModal: null,
   user: null,
   myProfile: null,
   sub: null,
+  analytics: null,
+  verif: null,
+  verifForm: { docType: 'Ghana Card', docRef: '', notes: '', file: null, fileName: '', error: '', busy: false },
   busy: '',
   acct: { error: '' },
   pw: { error: '', info: '' },
@@ -118,13 +164,54 @@ const state = {
   paystackConfigured: false,
 };
 
+const LOADERS = window.NKABOM_LOADERS || {
+  getDirectoryLoaderCopy: () => ({ isSearch: false, headline: 'Loading Nkabom directory', querySummary: '', steps: ['Gathering live professionals near you…'] }),
+  getSearchPulseCopy: () => 'Searching directory…',
+  getDashboardLoaderCopy: () => ({ headline: 'Loading your worker dashboard', steps: ['Syncing your profile & 30-day trial…'] }),
+  getAccountLoaderCopy: () => ({ headline: 'Loading account & settings', steps: ['Syncing your account details…'] }),
+  getAuthLoaderCopy: () => ({ headline: 'Signing you in', steps: ['Checking your account…'] }),
+  getProfileLoaderCopy: () => ({ headline: 'Loading professional profile', steps: ['Fetching portfolio & reviews…'] }),
+  getReviewLoaderCopy: () => ({ headline: 'Loading feedback invitation', steps: ['Checking your invite link…'] }),
+  getProfileSaveLoaderCopy: () => ({ headline: 'Saving profile updates', steps: ['Updating directory…'] }),
+};
+
+const waitMs = (ms) => new Promise((r) => setTimeout(r, ms));
+let loaderTicker = null;
+function syncLoaderTicker() {
+  clearInterval(loaderTicker);
+  loaderTicker = null;
+  const nodes = [...document.querySelectorAll('[data-loader-steps]')];
+  if (!nodes.length) return;
+  loaderTicker = setInterval(() => {
+    const activeNodes = [...document.querySelectorAll('[data-loader-steps]')];
+    if (!activeNodes.length) {
+      clearInterval(loaderTicker);
+      loaderTicker = null;
+      return;
+    }
+    activeNodes.forEach((node) => {
+      try {
+        const steps = JSON.parse(node.getAttribute('data-loader-steps') || '[]');
+        if (steps.length < 2) return;
+        const cur = Number(node.getAttribute('data-loader-idx') || '0');
+        const next = (cur + 1) % steps.length;
+        node.setAttribute('data-loader-idx', String(next));
+        node.classList.remove('pc-step-fade');
+        void node.offsetWidth;
+        node.textContent = steps[next];
+        node.classList.add('pc-step-fade');
+      } catch {}
+    });
+  }, 440);
+}
+
 function applyTheme(next) {
   const isDark = next === 'dark';
   state.theme = isDark ? 'dark' : 'light';
   document.documentElement.classList.toggle('dark', isDark);
-  try { localStorage.setItem('proconnect_theme', state.theme); } catch {}
+  try { localStorage.setItem('nkabom_theme', state.theme); } catch {}
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', isDark ? '#0B1220' : '#1F3A5F');
+  if (meta) meta.setAttribute('content', isDark ? '#100D0A' : '#B45309');
 }
 
 function toggleTheme() {
@@ -141,7 +228,7 @@ function toggleTheme() {
 
 /* ---------- HTTP Client ---------- */
 async function api(path, opts = {}) {
-  const headers = { 'X-Requested-With': 'ProConnect', ...(opts.headers || {}) };
+  const headers = { 'X-Requested-With': 'Nkabom', ...(opts.headers || {}) };
   let body = opts.body;
   if (body && !(body instanceof FormData) && typeof body !== 'string') {
     headers['Content-Type'] = 'application/json';
@@ -282,12 +369,14 @@ const REVIEWS = {
 };
 
 const WORKERS = {
-  list: ({ q = '', category = '', area = '', verifiedOnly = false, minRating = 0, sort = 'rating', page = 1 } = {}, opts = {}) => {
+  list: ({ q = '', category = '', area = '', verifiedOnly = false, availableOnly = false, ids = null, minRating = 0, sort = 'rating', page = 1 } = {}, opts = {}) => {
     const params = new URLSearchParams();
     if (q) params.set('q', q);
     if (category) params.set('category', category);
     if (area) params.set('area', area);
     if (verifiedOnly) params.set('verifiedOnly', '1');
+    if (availableOnly) params.set('availableOnly', '1');
+    if (Array.isArray(ids) && ids.length) params.set('ids', ids.join(','));
     if (minRating) params.set('minRating', String(minRating));
     if (sort) params.set('sort', sort);
     if (page > 1) params.set('page', String(page));
@@ -295,6 +384,31 @@ const WORKERS = {
   },
   get: (id) =>
     api(`/workers/${encodeURIComponent(id)}`),
+  track: (id, type) => {
+    if (!id || id === 'preview') return;
+    fetch(`/api/workers/${encodeURIComponent(id)}/track`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      keepalive: true,
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'Nkabom' },
+      body: JSON.stringify({ type }),
+    }).catch(() => {});
+  },
+  getAnalytics: () =>
+    api('/me/worker/analytics'),
+  getVerification: () =>
+    api('/me/worker/verify-request'),
+  submitVerification: async ({ docType, docRef, notes, file }) => {
+    const fd = new FormData();
+    fd.append('docType', docType);
+    if (docRef) fd.append('docRef', docRef);
+    if (notes) fd.append('notes', notes);
+    if (file) {
+      const resized = await resizeImageFile(file, 1400);
+      fd.append('document', resized);
+    }
+    return api('/me/worker/verify-request', { method: 'POST', body: fd });
+  },
   uploadPhoto: async (file) => {
     const resized = await resizeImageFile(file, 800);
     const fd = new FormData();
@@ -314,7 +428,87 @@ const WORKERS = {
     api('/reports', { method: 'POST', body: { workerId, reason, contact } }),
 };
 
+const BOOKMARKS = {
+  list: () => api('/me/bookmarks'),
+  add: (workerId) => api('/me/bookmarks', { method: 'POST', body: { workerId } }),
+  merge: (workerIds) => api('/me/bookmarks', { method: 'POST', body: { workerIds } }),
+  remove: (workerId) => api(`/me/bookmarks/${encodeURIComponent(workerId)}`, { method: 'DELETE' }),
+};
+
 const authError = (e) => e.message === 'NOT_CONNECTED' ? 'Accounts are not connected yet. Browsing is open to everyone.' : e.message;
+
+async function syncBookmarksAfterAuth() {
+  if (!state.user) return;
+  try {
+    if (state.savedIds.length) {
+      await BOOKMARKS.merge(state.savedIds);
+    }
+    const res = await BOOKMARKS.list();
+    if (res && Array.isArray(res.ids)) {
+      state.savedIds = res.ids;
+      state.savedWorkers = res.items || [];
+      saveLocalSavedIds(state.savedIds);
+    }
+  } catch {}
+}
+
+async function refreshSavedWorkers() {
+  if (!state.savedIds.length) {
+    state.savedWorkers = [];
+    return;
+  }
+  try {
+    if (state.user) {
+      const res = await BOOKMARKS.list();
+      state.savedIds = res.ids || state.savedIds;
+      state.savedWorkers = res.items || [];
+      saveLocalSavedIds(state.savedIds);
+    } else {
+      const res = await WORKERS.list({ ids: state.savedIds });
+      state.savedWorkers = res.items || [];
+    }
+  } catch {}
+}
+
+function isSaved(id) {
+  return state.savedIds.includes(String(id));
+}
+
+function toggleBookmark(worker) {
+  const id = String(worker.id || '');
+  if (!id || id === 'preview') return;
+  const already = isSaved(id);
+  if (already) {
+    state.savedIds = state.savedIds.filter((v) => v !== id);
+    state.savedWorkers = state.savedWorkers.filter((w) => String(w.id) !== id);
+    toast('Removed from saved pros.');
+  } else {
+    state.savedIds = [id, ...state.savedIds.filter((v) => v !== id)].slice(0, 50);
+    if (!state.savedWorkers.some((w) => String(w.id) === id)) {
+      state.savedWorkers = [worker, ...state.savedWorkers];
+    }
+    toast('Saved to shortlist.');
+  }
+  saveLocalSavedIds(state.savedIds);
+
+  if (state.user) {
+    (already ? BOOKMARKS.remove(id) : BOOKMARKS.add(id))
+      .then((res) => {
+        if (res && Array.isArray(res.ids)) {
+          state.savedIds = res.ids;
+          saveLocalSavedIds(state.savedIds);
+        }
+      })
+      .catch(() => {});
+  }
+
+  if (state.screen === 'market') {
+    if (state.savedOnly) loadMarket(1, { silent: true });
+    else updateMarket();
+  } else {
+    render();
+  }
+}
 
 async function startSession(user) {
   state.user = user;
@@ -322,6 +516,7 @@ async function startSession(user) {
   try { state.sub = await BILLING.getStatus(); } catch (e) { state.sub = null; }
   state.draft = state.myProfile ? { ...freshDraft(), ...state.myProfile } : { ...freshDraft(), name: user.name || '', phone: user.phone || '' };
   state.pendingPhotoFile = null;
+  await syncBookmarksAfterAuth();
 }
 
 async function submitAuth(f) {
@@ -329,10 +524,12 @@ async function submitAuth(f) {
   a.error = ''; a.info = '';
   a.values = { name: f.name, phone: f.phone, email: f.email };
   state.busy = 'auth'; render();
+  const startedAt = Date.now();
 
   try {
     if (a.mode === 'forgot') {
       const res = await AUTH.forgotPassword({ email: (f.email || '').trim() });
+      await waitMs(Math.max(0, 420 - (Date.now() - startedAt)));
       state.busy = '';
       a.info = res.message || 'If an account matches that email, a reset link has been sent.';
       return render();
@@ -342,6 +539,7 @@ async function submitAuth(f) {
         throw new Error('Passwords do not match.');
       }
       await AUTH.resetPassword({ token: a.resetToken, password: f.password });
+      await waitMs(Math.max(0, 460 - (Date.now() - startedAt)));
       state.busy = '';
       a.mode = 'login';
       a.resetToken = '';
@@ -360,6 +558,9 @@ async function submitAuth(f) {
         agree: Boolean(f.agree),
       })
       : await AUTH.signIn({ email: (f.email || '').trim(), password: f.password });
+    const minHold = signup ? 680 : 480;
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < minHold) await waitMs(minHold - elapsed);
     state.busy = '';
     if (!user) {
       a.mode = 'login';
@@ -408,8 +609,10 @@ async function saveProfile() {
   if (!draftReady()) return;
   const isNew = !state.myProfile;
   state.busy = 'save'; render();
+  const startedAt = Date.now();
   try {
-    const saved = await AUTH.saveMyWorkerProfile({ ...state.draft });
+    const payload = { ...state.draft, years: Math.max(0, Math.min(70, Number.parseInt(state.draft.years, 10) || 0)) };
+    const saved = await AUTH.saveMyWorkerProfile(payload);
     state.myProfile = saved;
     if (state.pendingPhotoFile) {
       try {
@@ -420,11 +623,14 @@ async function saveProfile() {
         toast('Profile saved, but photo upload failed: ' + photoErr.message);
       }
     }
+    const elapsed = Date.now() - startedAt;
+    if (elapsed < 520) await waitMs(520 - elapsed);
     state.draft = { ...freshDraft(), ...state.myProfile };
     try { state.sub = await BILLING.getStatus(); } catch {}
+    try { state.analytics = await WORKERS.getAnalytics(); } catch {}
     state.marketCache = null;
     loadStats();
-    loadMarket(1);
+    loadMarket(1, { silent: true });
     toast(isNew ? 'Profile published! Your 30-day free trial has started.' : 'Profile saved.');
   } catch (e) {
     toast(authError(e));
@@ -459,22 +665,56 @@ async function loadStats() {
 }
 
 let marketTimer;
+let searchPulseTimer;
+function triggerSearchPulse() {
+  clearTimeout(searchPulseTimer);
+  state.searchPulse = true;
+  if (state.screen === 'market') syncSearchUIState();
+  searchPulseTimer = setTimeout(() => {
+    state.searchPulse = false;
+    if (state.screen === 'market') syncSearchUIState();
+  }, 440);
+}
+
+function syncSearchUIState() {
+  const bar = document.querySelector('#market-search-bar');
+  if (bar) bar.classList.toggle('is-searching', Boolean(state.workersLoading || state.searchPulse));
+  const strip = $('#search-pulse-slot');
+  if (strip) strip.innerHTML = searchPulseStripHTML();
+}
+
 function applyLocalFilter(page = 1) {
   if (!Array.isArray(state.marketCache)) return false;
+  if (state.savedOnly && state.savedIds.length === 0) {
+    state.workers = [];
+    state.workersTotal = 0;
+    state.workersPage = 1;
+    state.workersTotalPages = 1;
+    state.workersLoading = false;
+    state.workersError = '';
+    if (state.screen === 'market') updateMarket();
+    return true;
+  }
   const qTerms = String(state.query || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
   const catExact = String(state.category || '').trim();
-  const areaLower = String(state.location || '').trim().toLowerCase();
+  const areaTerms = String(state.location || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
   const minR = Number(state.minRating) || 0;
+  const savedSet = state.savedOnly ? new Set(state.savedIds) : null;
 
   const filtered = state.marketCache.filter((w) => {
+    if (savedSet && !savedSet.has(String(w.id))) return false;
     if (catExact && w.category !== catExact) return false;
     if (state.verifiedOnly && !w.verified) return false;
+    if (state.availableOnly && (w.availability || 'available') !== 'available') return false;
     if (minR > 0 && !(w.reviews > 0 && w.rating >= minR)) return false;
     if (qTerms.length) {
-      const hay = `${w.name} ${w.category} ${w.bio || ''} ${w.area || ''} ${w.type || ''}`.toLowerCase();
+      const hay = `${w.name} ${w.category} ${w.bio || ''} ${w.area || ''} ${w.type || ''} ${w.rateNote || ''}`.toLowerCase();
       if (!qTerms.every((term) => hay.includes(term))) return false;
     }
-    if (areaLower && !String(w.area || '').toLowerCase().includes(areaLower)) return false;
+    if (areaTerms.length) {
+      const areaHay = String(w.area || '').toLowerCase();
+      if (!areaTerms.every((term) => areaHay.includes(term))) return false;
+    }
     return true;
   });
 
@@ -502,11 +742,20 @@ function applyLocalFilter(page = 1) {
   return true;
 }
 
-async function loadMarket(page = state.workersPage, { silent = false } = {}) {
+async function loadMarket(page = state.workersPage, { silent = false, anticipate = false } = {}) {
   const pageChanged = page !== state.workersPage;
   state.workersPage = page;
   state.workersError = '';
-  const hasAnyFilter = Boolean(state.query.trim() || state.category || state.location.trim() || state.verifiedOnly || state.minRating);
+  if (state.savedOnly && state.savedIds.length === 0) {
+    state.workers = [];
+    state.workersTotal = 0;
+    state.workersPage = 1;
+    state.workersTotalPages = 1;
+    state.workersLoading = false;
+    if (state.screen === 'market') updateMarket();
+    return;
+  }
+  const hasAnyFilter = Boolean(state.query.trim() || state.category || state.location.trim() || state.verifiedOnly || state.availableOnly || state.savedOnly || state.minRating);
 
   if (state.marketController) {
     state.marketController.abort();
@@ -515,10 +764,14 @@ async function loadMarket(page = state.workersPage, { silent = false } = {}) {
   state.marketController = controller;
   const seq = ++state.marketSeq;
 
-  if (!silent && ((!state.marketCache && state.workers.length === 0) || pageChanged)) {
+  const shouldShowSkeleton = !silent && (anticipate || (!state.marketCache && state.workers.length === 0) || pageChanged);
+  const startedAt = Date.now();
+  if (shouldShowSkeleton) {
     state.workersLoading = true;
     if (state.screen === 'market' && $('#results')) {
       $('#results').innerHTML = marketSkeletonHTML();
+      syncSearchUIState();
+      syncLoaderTicker();
     }
   } else {
     state.workersLoading = false;
@@ -530,11 +783,19 @@ async function loadMarket(page = state.workersPage, { silent = false } = {}) {
       category: state.category,
       area: state.location,
       verifiedOnly: state.verifiedOnly,
+      availableOnly: state.availableOnly,
+      ids: state.savedOnly ? state.savedIds : null,
       minRating: state.minRating,
       sort: state.sort,
       page: state.workersPage,
     }, { signal: controller.signal });
     if (seq !== state.marketSeq) return;
+    if (shouldShowSkeleton) {
+      const minHold = hasAnyFilter ? 480 : 420;
+      const elapsed = Date.now() - startedAt;
+      if (elapsed < minHold) await waitMs(minHold - elapsed);
+      if (seq !== state.marketSeq) return;
+    }
     state.workers = res.items || [];
     state.workersTotal = res.total || 0;
     state.workersPage = res.page || 1;
@@ -555,11 +816,13 @@ async function loadMarket(page = state.workersPage, { silent = false } = {}) {
 }
 
 function scheduleMarketLoad(page = 1) {
+  triggerSearchPulse();
   applyLocalFilter(page);
   clearTimeout(marketTimer);
-  marketTimer = setTimeout(() => loadMarket(page, { silent: true }), 120);
+  marketTimer = setTimeout(() => loadMarket(page, { silent: true }), 140);
 }
 
+const sessionViewedIds = new Set();
 async function openWorkerById(id, pushHash = true) {
   if (pushHash) {
     history.replaceState(null, '', `#pro/${encodeURIComponent(id)}`);
@@ -576,6 +839,10 @@ async function openWorkerById(id, pushHash = true) {
       state.profileLoading = false;
       render();
     }
+    if (fresh && fresh.id && !sessionViewedIds.has(fresh.id)) {
+      sessionViewedIds.add(fresh.id);
+      WORKERS.track(fresh.id, 'view');
+    }
   } catch (e) {
     if (state.screen === 'profile') {
       state.selected = null;
@@ -586,9 +853,25 @@ async function openWorkerById(id, pushHash = true) {
   }
 }
 
+const authProgressHTML = (mode, isWorkerFlow) => {
+  const copy = LOADERS.getAuthLoaderCopy(mode, isWorkerFlow);
+  return `
+  <div class="pc-auth-progress grid gap-2.5 pop" role="status" aria-live="polite">
+    <div class="flex items-center gap-3">
+      <div class="pc-loader-emblem">${icon(mode === 'signup' ? 'sparkles' : 'shield-check', 18)}</div>
+      <div class="min-w-0 flex-1">
+        <div class="text-sm font-extrabold text-ink">${esc(copy.headline)}</div>
+        <div class="text-xs text-slate-600 pc-step-fade" data-loader-idx="0" data-loader-steps="${esc(JSON.stringify(copy.steps))}">${esc(copy.steps[0])}</div>
+      </div>
+    </div>
+    <div class="pc-loader-track"><span class="pc-loader-runner"></span></div>
+  </div>`;
+};
+
 /* ---------- Auth & Account Screens ---------- */
 const authScreen = () => {
   const a = state.auth, mode = a.mode, su = mode === 'signup', v = a.values || {};
+  const busyAuth = state.busy === 'auth';
   const input = 'w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
   const field = (label, name, type = 'text', extra = '') => `<label class="grid gap-1 text-sm font-semibold">${label}<input name="${name}" type="${type}" required value="${type === 'password' ? '' : esc(v[name])}" class="${input}" ${extra}></label>`;
   const pwField = (label, name, extra = '', hint = '') => `
@@ -601,9 +884,9 @@ const authScreen = () => {
     </label>`;
 
   const authAside = `
-    <div class="lg:col-span-5 band rounded-3xl p-7 sm:p-8 text-white flex flex-col justify-between gap-6">
-      <div>
-        <div class="text-xs font-bold tracking-widest text-amber-rate uppercase">ProConnect Ghana</div>
+    <div class="lg:col-span-5 order-2 lg:order-1 band rounded-3xl p-6 sm:p-8 text-white flex flex-col justify-between gap-6 min-w-0">
+      <div class="min-w-0">
+        <div class="text-xs font-bold tracking-widest text-amber-rate uppercase">Nkabom Ghana</div>
         <h2 class="mt-2 text-2xl sm:text-3xl font-extrabold leading-tight text-balance">Direct WhatsApp leads with zero job commission.</h2>
         <p class="mt-3 text-sm text-white/80 leading-relaxed">Browse skilled professionals freely or publish your own profile in two minutes. First month free, then ${ghs(PLAN.price)}/month.</p>
         <ul class="mt-5 grid gap-3 text-sm text-white/80">
@@ -612,15 +895,15 @@ const authScreen = () => {
           <li class="flex items-start gap-2.5"><span class="mt-0.5 grid place-items-center w-5 h-5 rounded-lg bg-white/15 text-amber-rate shrink-0">${icon('check', 13)}</span><span>EXIF &amp; GPS metadata stripped automatically on photo upload</span></li>
         </ul>
       </div>
-      <div class="rounded-2xl bg-white/15 border border-brand/10 p-4 grid gap-2.5">
-        <div class="flex items-center justify-between text-xs text-white/70 font-semibold">
+      <div class="rounded-2xl bg-white/15 border border-brand/10 p-4 grid gap-2 min-w-0">
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs text-white/80 font-semibold">
           <span>Your public listing</span>
           <span class="text-amber-rate">30-day free trial</span>
         </div>
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
-            <div class="font-bold text-sm text-white truncate">Direct WhatsApp button</div>
-            <div class="text-xs text-white/70 truncate">Flat ${ghs(PLAN.price)}/mo after trial · Keep 100% of every job</div>
+        <div class="flex items-center justify-between gap-3 min-w-0">
+          <div class="min-w-0 flex-1">
+            <div class="font-bold text-sm text-white">Direct WhatsApp button</div>
+            <div class="text-xs text-white/80 leading-snug mt-0.5">Flat ${ghs(PLAN.price)}/mo after trial · Keep 100% of every job</div>
           </div>
           <span class="w-9 h-9 rounded-xl bg-wa text-white grid place-items-center shrink-0">${icon('message-circle', 18)}</span>
         </div>
@@ -629,18 +912,19 @@ const authScreen = () => {
 
   if (mode === 'forgot') {
     return `
-    <section class="max-w-5xl mx-auto px-5 py-10 pop">
+    <section class="max-w-5xl mx-auto px-4 sm:px-5 py-6 sm:py-10 ${busyAuth ? '' : 'pop'}">
       <div class="grid lg:grid-cols-12 gap-6 lg:gap-8 items-stretch">
         ${authAside}
-        <div class="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 flex flex-col justify-center">
-          <div class="max-w-md mx-auto w-full">
+        <div class="lg:col-span-7 order-1 lg:order-2 bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 flex flex-col justify-center min-w-0">
+          <div class="max-w-lg mx-auto w-full">
             <h1 class="text-2xl font-extrabold text-ink">Reset your password</h1>
             <p class="text-slate-500 mt-1 text-sm">Enter your account email and we will send a password reset link.</p>
             <form data-form="auth" class="mt-6 grid gap-4">
               ${field('Email', 'email', 'email', 'autocomplete="email" placeholder="you@example.com"')}
               ${a.error ? `<p class="text-sm text-red-600" role="alert">${esc(a.error)}</p>` : ''}
               ${a.info ? `<p class="text-sm text-emerald-700" role="status">${esc(a.info)}</p>` : ''}
-              <button class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold py-3.5 transition-colors" ${state.busy === 'auth' ? 'disabled' : ''}>${state.busy === 'auth' ? 'Please wait…' : 'Send reset link'}</button>
+              ${busyAuth ? authProgressHTML('forgot', false) : ''}
+              <button class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold py-3.5 transition-colors" ${busyAuth ? 'disabled' : ''}>${busyAuth ? 'Sending reset link…' : 'Send reset link'}</button>
             </form>
             <button type="button" data-action="auth-login" class="mt-4 text-sm font-semibold text-brand hover:underline">Back to log in</button>
           </div>
@@ -651,18 +935,19 @@ const authScreen = () => {
 
   if (mode === 'reset') {
     return `
-    <section class="max-w-5xl mx-auto px-5 py-10 pop">
+    <section class="max-w-5xl mx-auto px-4 sm:px-5 py-6 sm:py-10 ${busyAuth ? '' : 'pop'}">
       <div class="grid lg:grid-cols-12 gap-6 lg:gap-8 items-stretch">
         ${authAside}
-        <div class="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 flex flex-col justify-center">
-          <div class="max-w-md mx-auto w-full">
+        <div class="lg:col-span-7 order-1 lg:order-2 bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 flex flex-col justify-center min-w-0">
+          <div class="max-w-lg mx-auto w-full">
             <h1 class="text-2xl font-extrabold text-ink">Choose a new password</h1>
-            <p class="text-slate-500 mt-1 text-sm">Enter a new password for your ProConnect account.</p>
+            <p class="text-slate-500 mt-1 text-sm">Enter a new password for your Nkabom account.</p>
             <form data-form="auth" class="mt-6 grid gap-4">
               ${pwField('New password', 'password', 'minlength="6" autocomplete="new-password"', 'Min. 6 characters')}
               ${pwField('Confirm new password', 'confirmPassword', 'minlength="6" autocomplete="new-password"')}
               ${a.error ? `<p class="text-sm text-red-600" role="alert">${esc(a.error)}</p>` : ''}
-              <button class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold py-3.5 transition-colors" ${state.busy === 'auth' ? 'disabled' : ''}>${state.busy === 'auth' ? 'Saving…' : 'Update password'}</button>
+              ${busyAuth ? authProgressHTML('reset', false) : ''}
+              <button class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold py-3.5 transition-colors" ${busyAuth ? 'disabled' : ''}>${busyAuth ? 'Updating password…' : 'Update password'}</button>
             </form>
           </div>
         </div>
@@ -671,32 +956,33 @@ const authScreen = () => {
   }
 
   return `
-  <section class="max-w-5xl mx-auto px-5 py-10 pop">
+  <section class="max-w-5xl mx-auto px-4 sm:px-5 py-6 sm:py-10 ${busyAuth ? '' : 'pop'}">
     <div class="grid lg:grid-cols-12 gap-6 lg:gap-8 items-stretch">
       ${authAside}
-      <div class="lg:col-span-7 bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 flex flex-col justify-center">
-        <div class="max-w-md mx-auto w-full">
+      <div class="lg:col-span-7 order-1 lg:order-2 bg-white rounded-3xl border border-slate-200 p-5 sm:p-8 flex flex-col justify-center min-w-0">
+        <div class="max-w-lg mx-auto w-full">
           <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl mb-6 text-sm font-semibold">
-            <button type="button" data-action="auth-mode-set" data-mode="login" class="py-2 rounded-lg transition-colors ${!su ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">Log in</button>
-            <button type="button" data-action="auth-mode-set" data-mode="signup" class="py-2 rounded-lg transition-colors ${su ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">Create account</button>
+            <button type="button" data-action="auth-mode-set" data-mode="login" class="py-2 rounded-lg transition-colors whitespace-nowrap ${!su ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">Log in</button>
+            <button type="button" data-action="auth-mode-set" data-mode="signup" class="py-2 rounded-lg transition-colors whitespace-nowrap ${su ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">Create account</button>
           </div>
-          <h1 class="text-2xl font-extrabold text-ink">${su ? 'Create your account' : 'Welcome back'}</h1>
-          <p class="text-slate-500 mt-1 text-sm">${esc(a.reason) || (su ? 'One account to manage your details and list your services.' : 'Sign in to find trusted pros or manage your worker profile.')}</p>
+          <h1 class="text-2xl font-extrabold text-ink">${su ? 'Create your Nkabom account' : 'Welcome back'}</h1>
+          <p class="text-slate-500 mt-1 text-sm leading-relaxed">${esc(a.reason) || (su ? 'One account to browse pros, manage your details, or list your services.' : 'Sign in to find trusted pros or manage your worker profile.')}</p>
           <form data-form="auth" class="mt-6 grid gap-4">
-            ${su ? field('Full name', 'name', 'text', 'autocomplete="name" placeholder="e.g. Kwame Mensah"') + field('Phone / WhatsApp', 'phone', 'tel', 'autocomplete="tel" placeholder="024 000 0000"') : ''}
+            ${su ? `<div class="grid sm:grid-cols-2 gap-4">${field('Full name', 'name', 'text', 'autocomplete="name" placeholder="e.g. Kwame Mensah"')}${field('Phone / WhatsApp', 'phone', 'tel', 'autocomplete="tel" placeholder="024 000 0000"')}</div>` : ''}
             ${field('Email', 'email', 'email', 'autocomplete="email" placeholder="you@example.com"')}
             ${pwField('Password', 'password', `minlength="6" autocomplete="${su ? 'new-password' : 'current-password'}"`, su ? 'Min. 6 characters' : '')}
-            ${su ? `<label class="flex items-start gap-2.5 text-sm text-slate-600"><input type="checkbox" name="agree" required class="mt-1"><span>I agree to the <button type="button" data-action="terms" class="font-semibold text-brand hover:underline">Terms of Service</button> and <button type="button" data-action="privacy" class="font-semibold text-brand hover:underline">Privacy Policy</button></span></label>` : ''}
+            ${su ? `<label class="flex items-start gap-2.5 text-sm text-slate-600 cursor-pointer leading-snug"><input type="checkbox" name="agree" required class="mt-0.5 w-4 h-4 shrink-0"><span>I agree to the <button type="button" data-action="terms" class="font-semibold text-brand hover:underline">Terms of Service</button> and <button type="button" data-action="privacy" class="font-semibold text-brand hover:underline">Privacy Policy</button>.</span></label>` : ''}
             ${a.error ? `<p class="text-sm text-red-600" role="alert">${esc(a.error)}</p>` : ''}
             ${a.info ? `<p class="text-sm text-emerald-700" role="status">${esc(a.info)}</p>` : ''}
-            <button class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold py-3.5 transition-colors" ${state.busy === 'auth' ? 'disabled' : ''}>${state.busy === 'auth' ? 'Please wait…' : su ? 'Create account' : 'Sign in'}</button>
+            ${busyAuth ? authProgressHTML(su ? 'signup' : 'login', !!a.reason) : ''}
+            <button class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold py-3.5 transition-colors" ${busyAuth ? 'disabled' : ''}>${busyAuth ? (su ? 'Creating account…' : 'Signing in…') : su ? 'Create account' : 'Sign in'}</button>
           </form>
           <div class="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm">
-            <button type="button" data-action="auth-mode" class="font-semibold text-brand hover:underline">${su ? 'Already have an account? Log in' : 'New here? Create an account'}</button>
-            ${su ? '' : '<button type="button" data-action="auth-forgot" class="text-slate-500 hover:text-brand hover:underline">Forgot password?</button>'}
+            <button type="button" data-action="auth-mode" class="font-semibold text-brand hover:underline py-1">${su ? 'Already have an account? Log in' : 'New here? Create an account'}</button>
+            ${su ? '' : '<button type="button" data-action="auth-forgot" class="text-slate-500 hover:text-brand hover:underline py-1">Forgot password?</button>'}
           </div>
           <div class="mt-5 pt-4 border-t border-slate-200">
-            <button type="button" data-action="skip" class="w-full rounded-xl border border-slate-200 py-2.5 text-sm font-semibold text-slate-600 hover:border-brand/40 hover:text-brand transition-colors">Browse professionals without signing in</button>
+            <button type="button" data-action="skip" class="w-full rounded-xl border border-slate-200 py-2.5 px-4 text-sm font-semibold text-slate-600 hover:border-brand/40 hover:text-brand transition-colors">Browse professionals without signing in</button>
           </div>
         </div>
       </div>
@@ -704,7 +990,52 @@ const authScreen = () => {
   </section>`;
 };
 
+const accountSkeletonHTML = () => {
+  const copy = LOADERS.getAccountLoaderCopy();
+  return `
+  <section class="max-w-5xl mx-auto px-5 py-8 grid gap-6" aria-busy="true" aria-label="Loading account and settings">
+    ${anticipationBannerHTML({ ic: 'shield-check', headline: copy.headline, steps: copy.steps })}
+    <div class="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div style="width:64px;height:64px" class="rounded-full pc-skel shrink-0"></div>
+        <div class="grid gap-2">
+          <div class="h-3 w-28 rounded-lg pc-skel"></div>
+          <div class="h-6 w-48 rounded-lg pc-skel"></div>
+          <div class="h-3.5 w-40 rounded-lg pc-skel"></div>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <div class="h-10 w-32 rounded-xl pc-skel"></div>
+        <div class="h-10 w-24 rounded-xl pc-skel"></div>
+      </div>
+    </div>
+    <div class="grid lg:grid-cols-12 gap-6 items-start">
+      <div class="lg:col-span-4 grid gap-4">
+        <div class="bg-white rounded-3xl border border-slate-200 p-4 grid gap-2.5">
+          <div class="h-3 w-28 rounded-lg pc-skel"></div>
+          <div class="h-10 w-full rounded-xl pc-skel"></div>
+          <div class="h-10 w-full rounded-xl pc-skel"></div>
+          <div class="h-10 w-full rounded-xl pc-skel"></div>
+        </div>
+        <div class="bg-white rounded-3xl border border-slate-200 p-5 grid gap-3">
+          <div class="h-4 w-24 rounded-lg pc-skel"></div>
+          <div class="h-5 w-40 rounded-lg pc-skel"></div>
+          <div class="h-12 w-full rounded-xl pc-skel"></div>
+        </div>
+      </div>
+      <div class="lg:col-span-8 grid gap-6">
+        <div class="bg-white rounded-3xl border border-slate-200 p-6 grid gap-4">
+          <div class="h-6 w-36 rounded-lg pc-skel"></div>
+          <div class="grid sm:grid-cols-2 gap-4"><div class="h-12 rounded-xl pc-skel"></div><div class="h-12 rounded-xl pc-skel"></div></div>
+          <div class="h-12 rounded-xl pc-skel"></div>
+        </div>
+      </div>
+    </div>
+  </section>`;
+};
+
 const accountScreen = () => {
+  if (state.accountLoading) return accountSkeletonHTML();
   const u = state.user; if (!u) return authScreen();
   const mp = state.myProfile;
   const sub = state.sub;
@@ -747,6 +1078,7 @@ const accountScreen = () => {
         <nav aria-label="Account sections" class="bg-white rounded-3xl border border-slate-200 p-3 grid gap-1">
           <div class="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">Settings menu</div>
           <button type="button" data-action="acct-jump" data-target="acct-personal" class="pc-settings-link"><span>Personal details</span>${icon('user', 16)}</button>
+          <button type="button" data-action="acct-jump" data-target="acct-saved" class="pc-settings-link"><span>Saved pros (${state.savedIds.length})</span>${icon('bookmark', 16)}</button>
           <button type="button" data-action="acct-jump" data-target="acct-appearance" class="pc-settings-link"><span>Appearance</span>${icon(state.theme === 'dark' ? 'moon' : 'sun', 16)}</button>
           <button type="button" data-action="acct-jump" data-target="acct-security" class="pc-settings-link"><span>Security &amp; password</span>${icon('shield-check', 16)}</button>
           <button type="button" data-action="acct-jump" data-target="acct-worker" class="pc-settings-link"><span>Worker profile &amp; plan</span>${icon('briefcase', 16)}</button>
@@ -772,10 +1104,35 @@ const accountScreen = () => {
           </div>
         </form>
 
+        <div id="acct-saved" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="font-bold text-lg text-ink">Saved professionals (${state.savedIds.length})</h2>
+              <p class="text-sm text-slate-500">Your shortlisted experts synced across sessions.</p>
+            </div>
+            <div class="flex flex-wrap gap-2">
+              ${state.savedIds.length >= 2 ? `<button type="button" data-action="compare-open" class="rounded-xl bg-brand text-white font-bold px-4 py-2 text-xs">Compare (${state.savedIds.length})</button>` : ''}
+              <button type="button" data-action="open-saved" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold hover:border-brand/40 hover:text-brand">View in directory</button>
+            </div>
+          </div>
+          ${state.savedWorkers.length ? `<div class="grid sm:grid-cols-2 gap-3">${state.savedWorkers.slice(0, 4).map((sw) => `
+            <div class="rounded-2xl border border-slate-200 p-3 flex items-center justify-between gap-3">
+              <button type="button" data-action="open" data-id="${esc(sw.id)}" class="flex items-center gap-3 min-w-0 text-left flex-1">
+                ${avatar(sw, 40)}
+                <div class="min-w-0">
+                  <div class="font-bold text-sm text-ink truncate">${esc(sw.name)}</div>
+                  <div class="text-xs text-slate-500 truncate">${esc(sw.category)} · ${esc(sw.area)}</div>
+                </div>
+              </button>
+              <button type="button" data-action="bookmark" data-id="${esc(sw.id)}" aria-label="Remove bookmark" aria-pressed="true" class="pc-bm-btn">${icon('bookmark', 15, 'fill-amber-rate')}</button>
+            </div>`).join('')}</div>`
+          : `<p class="text-sm text-slate-500">Tap the bookmark icon on any professional card to save them here for quick comparison.</p>`}
+        </div>
+
         <div id="acct-appearance" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 class="font-bold text-lg text-ink">Appearance</h2>
-            <p class="text-sm text-slate-500">Choose how ProConnect looks on this device.</p>
+            <p class="text-sm text-slate-500">Choose how Nkabom looks on this device.</p>
           </div>
           <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-sm font-semibold shrink-0">
             <button type="button" data-action="set-theme" data-theme="light" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg transition-colors whitespace-nowrap shrink-0 ${state.theme !== 'dark' ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">${icon('sun', 15)} Light</button>
@@ -819,7 +1176,7 @@ const accountScreen = () => {
               <p class="text-sm text-slate-500">${u.termsAcceptedAt ? `Terms (${esc(u.termsVersion || SITE.updated)}) accepted ${new Date(u.termsAcceptedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}` : 'Manage your personal export and privacy choices.'}</p>
             </div>
             <div class="flex flex-wrap items-center gap-4 text-sm font-semibold">
-              <a href="/api/me/export" download="proconnect-my-data.json" class="text-brand hover:underline">Download my data</a>
+              <a href="/api/me/export" download="nkabom-my-data.json" class="text-brand hover:underline">Download my data</a>
               <button type="button" data-action="privacy" class="text-slate-600 hover:text-brand hover:underline">Privacy Policy</button>
               <button type="button" data-action="terms" class="text-slate-600 hover:text-brand hover:underline">Terms</button>
             </div>
@@ -854,7 +1211,24 @@ const draftWorker = () => ({
   testimonials: state.myProfile ? state.myProfile.testimonials : [],
   verified: !!(state.myProfile && state.myProfile.verified),
 });
-const draftReady = () => state.draft.name.trim().length >= 2 && state.draft.category.trim().length >= 2 && state.draft.area.trim().length >= 2 && state.draft.phone.replace(/\D/g, '').length >= 9;
+const AVAIL_META = {
+  available: { label: 'Available today', cls: 'pc-avail-available' },
+  busy: { label: 'Booked this week', cls: 'pc-avail-busy' },
+  appointment: { label: 'By appointment', cls: 'pc-avail-appointment' },
+};
+const availabilityBadge = (w) => {
+  const m = AVAIL_META[w.availability] || AVAIL_META.available;
+  return `<span class="pc-avail-badge ${m.cls}"><span class="pc-avail-dot"></span>${m.label}</span>`;
+};
+const draftReady = () => {
+  const y = Number(state.draft.years);
+  return state.draft.name.trim().length >= 2 &&
+    state.draft.category.trim().length >= 2 &&
+    state.draft.area.trim().length >= 2 &&
+    state.draft.phone.replace(/\D/g, '').length >= 9 &&
+    state.draft.years !== '' &&
+    Number.isInteger(y) && y >= 0 && y <= 70;
+};
 
 /* ---------- Small building blocks ---------- */
 const avatar = (w, size = 56) => {
@@ -868,26 +1242,38 @@ const rating = (w) => w.reviews > 0
   : `<span class="inline-flex items-center gap-1 text-xs text-slate-400">${icon('star', 14, 'text-slate-300')} New</span>`;
 const badge = (text, ic, tone = 'brand') => `<span class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold ${tone === 'green' ? 'bg-emerald-50 text-emerald-700' : 'bg-brand-soft text-brand'}">${ic ? icon(ic, 13) : ''}${esc(text)}</span>`;
 const waButton = (w, big = false) => {
-  const msg = encodeURIComponent(`Hi ${w.name}, I found you on ProConnect and need a ${(w.category || 'service').toLowerCase()} job done.`);
-  return `<a href="https://wa.me/${toWa(w.phone)}?text=${msg}" target="_blank" rel="noopener noreferrer" class="w-full ${big ? 'py-3.5 text-base' : 'py-2.5 text-sm'} inline-flex items-center justify-center gap-2 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold shadow-sm transition-colors">${icon('message-circle', big ? 20 : 18)} Chat on WhatsApp</a>`;
+  const sb = state.sessionBrief && state.sessionBrief.active ? state.sessionBrief : null;
+  const rawMsg = sb
+    ? `Hi ${w.name}, I found you on Nkabom.\n\nJob: ${sb.kind} (${w.category || sb.category})\nWhen: ${sb.when}\nLocation: ${sb.area || w.area || 'to be confirmed'}\n\nAre you available, and roughly what would it cost?`
+    : `Hi ${w.name}, I found you on Nkabom and need a ${(w.category || 'service').toLowerCase()} job done.`;
+  const msg = encodeURIComponent(rawMsg);
+  return `<a href="https://wa.me/${toWa(w.phone)}?text=${msg}" data-wa-worker="${esc(w.id)}" target="_blank" rel="noopener noreferrer" class="w-full ${big ? 'py-3.5 text-base' : 'py-2.5 text-sm'} inline-flex items-center justify-center gap-2 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold shadow-sm transition-colors">${icon('message-circle', big ? 20 : 18)} Chat on WhatsApp</a>`;
 };
 const workerCard = (w, preview = false) => {
   const strip = [0, 1, 2].map((i) => { const [c1, c2] = TINTS[((w.tint || 0) + i) % TINTS.length]; return `<span class="flex-1" style="background:linear-gradient(135deg,${c1},${c2})"></span>`; }).join('');
+  const saved = !preview && isSaved(w.id);
   return `
   <article ${preview ? '' : `data-action="open" data-id="${esc(w.id)}" tabindex="0" role="button"`} class="card-lift bg-white rounded-2xl border border-slate-200 hover:border-brand/40 overflow-hidden flex flex-col ${preview ? '' : 'cursor-pointer'}">
     <div class="flex h-10">${strip}</div>
     <div class="p-4 pt-0 flex-1 flex flex-col gap-3">
       <div class="flex items-end justify-between -mt-7">
         <div class="ring-4 ring-white rounded-full">${avatar(w, 56)}</div>
-        ${w.verified ? `<span class="pc-verified-inline">${icon('badge-check', 13)}Verified</span>` : ''}
+        <div class="flex items-center gap-1.5">
+          ${w.verified ? `<span class="pc-verified-inline">${icon('badge-check', 13)}Verified</span>` : ''}
+          ${preview ? '' : `<button type="button" data-action="bookmark" data-id="${esc(w.id)}" aria-pressed="${saved}" aria-label="${saved ? 'Remove from saved' : 'Save pro'}" title="${saved ? 'Saved' : 'Save pro'}" class="pc-bm-btn">${icon('bookmark', 14, saved ? 'fill-amber-rate' : '')}</button>`}
+        </div>
       </div>
       <div>
         <h3 class="text-lg font-bold leading-tight truncate text-ink">${esc(w.name) || 'Your name'}</h3>
         <p class="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5 truncate">${icon(catIcon(w.category), 14)} <span class="truncate">${esc(w.category)} · ${esc(w.type)}</span></p>
       </div>
+      <div class="flex flex-wrap items-center gap-1.5">
+        ${availabilityBadge(w)}
+        ${w.rateNote ? `<span class="pc-rate-chip">${icon('tag', 11)}<span class="truncate">${esc(w.rateNote)}</span></span>` : ''}
+      </div>
       ${w.bio ? `<p class="text-xs text-slate-600 line-clamp-2 leading-relaxed">${esc(w.bio)}</p>` : ''}
       <div class="mt-auto flex items-center justify-between gap-2 pt-1 tabular-nums">${rating(w)}${blazeChip(w)}</div>
-      <div class="flex items-center justify-between gap-2 text-xs font-medium text-slate-500 tabular-nums"><span class="flex items-center gap-1 min-w-0"><span class="shrink-0">${icon('map-pin', 14)}</span><span class="truncate">${esc(w.area) || 'Your service area'}</span></span><span class="shrink-0">${esc(w.years)} yrs exp</span></div>
+      <div class="flex items-center justify-between gap-2 text-xs font-medium text-slate-500 tabular-nums"><span class="flex items-center gap-1 min-w-0"><span class="shrink-0">${icon('map-pin', 14)}</span><span class="truncate">${esc(w.area) || 'Your service area'}</span></span><span class="shrink-0">${esc(w.years || 0)} yrs exp</span></div>
       ${waButton(w)}
     </div>
   </article>`;
@@ -906,7 +1292,7 @@ const header = () => {
   <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-4 sm:px-5 h-16 flex items-center justify-between gap-3">
       <button data-action="home" class="flex items-center gap-2 font-extrabold text-lg text-brand whitespace-nowrap shrink-0">
-        <img src="logo-icon.png" alt="" class="w-9 h-9 object-contain pc-logo-badge" onerror="this.style.display='none'">ProConnect</button>
+        <img src="logo-icon.png" alt="" class="w-9 h-9 object-contain pc-logo-badge" onerror="this.style.display='none'">Nkabom</button>
       <nav aria-label="Primary" class="hidden md:inline-flex items-center gap-6 text-sm font-semibold">
         <button data-action="role" data-role="customer" data-active="${state.screen === 'market'}" class="${navCls(state.screen === 'market')}">Find Pros</button>
         <button data-action="role" data-role="worker" data-active="${state.screen === 'dashboard'}" class="${navCls(state.screen === 'dashboard')}">For Workers</button>
@@ -924,7 +1310,7 @@ const header = () => {
       ${mobItem('role', 'data-role="customer"', 'Find a Professional', state.screen === 'market')}
       ${mobItem('role', 'data-role="worker"', "I'm a Worker", state.screen === 'dashboard')}
       ${u ? mobItem('account', '', 'Account &amp; Settings', state.screen === 'account') : ''}
-      ${mobItem('about', '', 'About ProConnect', state.screen === 'about')}
+      ${mobItem('about', '', 'About Nkabom', state.screen === 'about')}
       ${mobItem('privacy', '', 'Privacy Policy', state.screen === 'privacy')}
       ${mobItem('terms', '', 'Terms of Service', state.screen === 'terms')}
       ${u ? mobItem('signout', '', 'Sign out', false) : ''}
@@ -962,7 +1348,7 @@ const QUICK_SEARCHES = [
 ];
 
 const landingBriefText = (lb = state.landingBrief) =>
-  `Hi, I found you on ProConnect.\n\nJob: ${lb.kind} (${lb.category})\nWhen: ${lb.when}\nLocation: ${lb.area || 'to be confirmed'}\n\nAre you available, and roughly what would it cost?`;
+  `Hi, I found you on Nkabom.\n\nJob: ${lb.kind} (${lb.category})\nWhen: ${lb.when}\nLocation: ${lb.area || 'to be confirmed'}\n\nAre you available, and roughly what would it cost?`;
 
 const updateLandingBriefPreview = () => {
   const pre = $('#home-brief-preview');
@@ -974,9 +1360,9 @@ const siteFooter = () => `
     <div class="max-w-6xl mx-auto px-5 py-12 grid sm:grid-cols-2 lg:grid-cols-12 gap-8 items-start">
       <div class="lg:col-span-4 grid gap-3.5">
         <div class="flex items-center gap-3">
-          <img src="logo-white.png" alt="ProConnect" class="h-10 w-auto" onerror="this.style.display='none'">
+          <img src="logo-white.png" alt="Nkabom" class="h-10 w-auto" onerror="this.style.display='none'">
           <div>
-            <div class="font-extrabold text-lg leading-tight">ProConnect</div>
+            <div class="font-extrabold text-lg leading-tight">Nkabom</div>
             <div class="text-xs text-white/70">Accra · Kumasi · Takoradi · Nationwide</div>
           </div>
         </div>
@@ -1003,7 +1389,7 @@ const siteFooter = () => `
 
       <div class="lg:col-span-2 grid gap-2.5 text-sm">
         <div class="text-xs font-bold uppercase tracking-widest text-amber-rate">Company &amp; Legal</div>
-        <button type="button" data-action="about" class="text-left pc-footer-link">About ProConnect</button>
+        <button type="button" data-action="about" class="text-left pc-footer-link">About Nkabom</button>
         <button type="button" data-action="terms" class="text-left pc-footer-link">Terms of Service</button>
         <button type="button" data-action="privacy" class="text-left pc-footer-link">Privacy Policy</button>
         <a href="/admin" class="pc-footer-link">Admin portal</a>
@@ -1012,7 +1398,7 @@ const siteFooter = () => `
 
     <div class="pc-footer-divider">
       <div class="max-w-6xl mx-auto px-5 py-5 text-xs text-white/70 flex flex-col sm:flex-row items-center justify-between gap-2">
-        <span>© 2026 ProConnect Ghana. Free for customers.</span>
+        <span>© 2026 Nkabom Ghana. Free for customers.</span>
         <span>Professionals: ${ghs(PLAN.price)}/month after 30-day free trial · Secured by Paystack</span>
       </div>
     </div>
@@ -1038,7 +1424,7 @@ const landing = () => {
   ];
   const workerSteps = [
     ['01', 'Publish in 2 minutes', 'Create your profile with any trade or creative skill, upload up to 12 portfolio photos, and start your 30-day free trial.'],
-    ['02', 'Keep 100% of your pay', 'Clients message your WhatsApp directly. ProConnect charges a flat GH₵20/month after trial with zero job commission.'],
+    ['02', 'Keep 100% of your pay', 'Clients message your WhatsApp directly. Nkabom charges a flat GH₵20/month after trial with zero job commission.'],
     ['03', 'Build verified proof', 'Send clients a private one-time feedback link after each job to collect Blazes, star ratings, and testimonials.'],
   ];
   const activeSteps = tab === 'worker' ? workerSteps : customerSteps;
@@ -1109,7 +1495,7 @@ const landing = () => {
     <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
       <div class="text-center sm:text-left">
         <p class="text-xs font-bold tracking-widest text-amber-rate uppercase">Simple by design</p>
-        <h2 class="mt-1 text-2xl sm:text-3xl font-extrabold text-ink text-balance">How ProConnect works</h2>
+        <h2 class="mt-1 text-2xl sm:text-3xl font-extrabold text-ink text-balance">How Nkabom works</h2>
       </div>
       <div class="inline-flex p-1 bg-slate-100 rounded-xl text-sm font-semibold shrink-0">
         <button data-action="landing-tab" data-tab="customer" class="px-4 py-2 rounded-lg transition-colors whitespace-nowrap shrink-0 ${tab === 'customer' ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">For customers</button>
@@ -1137,7 +1523,7 @@ const landing = () => {
         <div>
           <p class="text-xs font-bold tracking-widest text-amber-rate uppercase">Interactive Job Brief</p>
           <h2 class="mt-1 text-2xl sm:text-3xl font-extrabold text-ink text-balance">Skip the awkward “hello” — send a clear brief.</h2>
-          <p class="mt-2 text-sm text-slate-600">Preview how ProConnect formats your WhatsApp inquiry in 20 seconds so professionals can quote accurately right away.</p>
+          <p class="mt-2 text-sm text-slate-600">Preview how Nkabom formats your WhatsApp inquiry in 20 seconds so professionals can quote accurately right away.</p>
         </div>
         <div>
           <div class="text-xs font-semibold text-slate-500 mb-2">Trade</div>
@@ -1192,7 +1578,7 @@ const landing = () => {
       <div class="md:col-span-3 bg-white rounded-3xl border border-slate-200 p-8">
         <h3 class="text-lg font-bold text-ink">Everything a professional needs</h3>
         <ul class="mt-4 grid sm:grid-cols-2 gap-3">${['A public profile with your photo, bio and category', 'Customers contact you directly on WhatsApp', 'A portfolio of your best work', 'Blazes, ratings and testimonials from real clients', 'A private feedback link to send after each job', 'Job briefs: clear leads instead of “hello”'].map((t) => `<li class="flex gap-2 text-sm text-slate-600"><span class="mt-0.5 grid place-items-center w-5 h-5 rounded-lg bg-emerald-50 text-emerald-600 shrink-0">${icon('check', 13)}</span>${t}</li>`).join('')}</ul>
-        <p class="mt-5 text-sm text-slate-500">Customers always use ProConnect for free. No commission on your jobs.</p>
+        <p class="mt-5 text-sm text-slate-500">Customers always use Nkabom for free. No commission on your jobs.</p>
       </div>
     </div>
   </section>
@@ -1203,13 +1589,13 @@ const landing = () => {
     <div class="mt-8 grid gap-3">
       ${[['Do I need an account to find a pro?', 'No. You can browse, open profiles and chat on WhatsApp as a guest. An account is only needed if you want to offer your services.'],
          ['How do I contact a professional?', 'Tap Chat on WhatsApp on any profile. WhatsApp opens with a ready message, and you talk to the pro directly. You can also send a short job brief first.'],
-         ['How much does ProConnect cost?', `It is free for customers. Professionals pay ${ghs(PLAN.price)} per month, and every new professional gets their first month free.`],
-         ['Does ProConnect take a commission?', 'No. Professionals pay a flat monthly subscription. You and the professional agree the job and the price between yourselves.'],
+         ['How much does Nkabom cost?', `It is free for customers. Professionals pay ${ghs(PLAN.price)} per month, and every new professional gets their first month free.`],
+         ['Does Nkabom take a commission?', 'No. Professionals pay a flat monthly subscription. You and the professional agree the job and the price between yourselves.'],
          ['What are Blazes, ratings and testimonials?', 'After a job, a professional can send you a private link. You can give a Blaze (a fire reaction for great work), a star rating, a testimonial, or all three.'],
          ['How do professionals pay?', `Once a month, by mobile money or card. Nothing renews automatically, so you only pay when you choose to. If you skip a month, your profile is hidden from search until you pay again.`],
          ['What does the Verified badge mean?', 'Pros with the Verified badge have had their details checked by us. Always agree the price and the work before it starts.'],
          ['I am a tradesperson or creative. How do I join?', `Tap For Workers, sign up and create your profile. Your first month is free, then it is ${ghs(PLAN.price)} per month. Choose one of the main categories or type your own, such as Graphic Design or Video Editing.`],
-         ['Is payment for jobs handled on ProConnect?', 'No. Agree on payment directly with the pro, and keep your chat on WhatsApp as a record of what was agreed.']]
+         ['Is payment for jobs handled on Nkabom?', 'No. Agree on payment directly with the pro, and keep your chat on WhatsApp as a record of what was agreed.']]
         .map(([q, a]) => `<details class="faq bg-white rounded-2xl border border-slate-200 hover:border-brand/40 px-5 py-4"><summary class="flex items-center justify-between gap-4 cursor-pointer font-semibold text-ink list-none">${q}<span class="faq-plus shrink-0">+</span></summary><p class="mt-3 text-slate-600 text-sm leading-relaxed">${a}</p></details>`).join('')}
     </div>
   </section>
@@ -1246,7 +1632,7 @@ const tilesHTML = () => {
 const toolbarHTML = () => {
   const cities = state.knownCities.slice(0, 6);
   const chip = (on, attrs, label, ic) => `<button type="button" ${attrs} class="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold border transition-colors whitespace-nowrap shrink-0 ${on ? 'bg-brand text-white border-brand' : 'bg-white border-slate-200 text-slate-600 hover:border-brand/40 hover:text-brand'}">${ic ? icon(ic, 15) : ''}${label}</button>`;
-  const active = state.verifiedOnly || state.minRating || state.category || state.query || state.location;
+  const active = state.verifiedOnly || state.availableOnly || state.savedOnly || state.minRating || state.category || state.query || state.location;
   return `
   ${cities.length ? `<div class="flex flex-wrap items-center gap-2 mb-3">
     <span class="text-xs font-bold uppercase tracking-widest text-slate-500 mr-1">Near you</span>
@@ -1254,15 +1640,68 @@ const toolbarHTML = () => {
   </div>` : ''}
   <div class="flex flex-wrap items-center gap-2">
     ${chip(state.verifiedOnly, 'data-action="verified"', 'Verified only', 'badge-check')}
+    ${chip(state.availableOnly, 'data-action="available"', 'Available today', 'clock')}
     ${chip(!!state.minRating, 'data-action="rating"', '4.8+ rating', 'star')}
+    ${chip(state.savedOnly, 'data-action="saved-filter"', `Saved (${state.savedIds.length})`, 'bookmark')}
+    ${state.savedIds.length >= 2 ? `<button type="button" data-action="compare-open" class="inline-flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-bold bg-amber-rate text-ink whitespace-nowrap shrink-0">${icon('layers', 15)}Compare (${state.savedIds.length})</button>` : ''}
     ${active ? '<button type="button" data-action="clear" class="rounded-xl px-3 py-2 text-sm font-semibold text-brand hover:bg-brand-soft transition-colors whitespace-nowrap shrink-0">Reset filters</button>' : ''}
     <label class="ml-auto inline-flex items-center gap-2 text-sm text-slate-500 whitespace-nowrap shrink-0"><span>Sort</span>
       <select data-field="sort" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700">${Object.entries(SORTS).map(([k, label]) => `<option value="${k}" ${state.sort === k ? 'selected' : ''}>${label}</option>`).join('')}</select></label>
   </div>`;
 };
 
+const sessionBriefBannerHTML = () => {
+  const sb = state.sessionBrief;
+  if (!sb || !sb.active) return '';
+  return `
+  <div class="pc-brief-strip pop">
+    <div class="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+      <span class="w-8 h-8 rounded-xl bg-wa grid place-items-center shrink-0">${icon('message-circle', 16)}</span>
+      <div class="min-w-0">
+        <div class="text-xs font-extrabold text-ink">Active WhatsApp job brief: ${esc(sb.kind)} · ${esc(sb.when)}</div>
+        <div class="text-xs text-slate-600">${sb.area ? `Location: ${esc(sb.area)} · ` : ''}Automatically pre-filled when you tap Chat on WhatsApp</div>
+      </div>
+    </div>
+    <button type="button" data-action="clear-session-brief" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-brand/40 shrink-0">Clear brief</button>
+  </div>`;
+};
+
+const anticipationBannerHTML = ({ isSearch = false, ic = 'users', headline = '', querySummary = '', steps = [] }) => `
+  <div class="pc-loader-card p-4 sm:p-5 grid gap-3" role="status" aria-live="polite">
+    <div class="flex items-center gap-3.5 min-w-0">
+      <div class="pc-loader-emblem ${isSearch ? 'pc-loader-emblem--search' : ''}">${icon(ic, 20)}</div>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <div class="font-extrabold text-sm sm:text-base text-ink truncate">${esc(headline)}</div>
+          ${querySummary ? `<div class="text-xs font-semibold text-brand truncate">${esc(querySummary)}</div>` : ''}
+        </div>
+        <div class="mt-0.5 text-xs sm:text-sm text-slate-500 pc-step-fade" data-loader-idx="0" data-loader-steps="${esc(JSON.stringify(steps))}">${esc(steps[0] || '')}</div>
+      </div>
+    </div>
+    <div class="pc-loader-track"><span class="pc-loader-runner"></span></div>
+  </div>`;
+
+const searchPulseStripHTML = () => {
+  if (!state.searchPulse || state.workersLoading) return '';
+  const txt = LOADERS.getSearchPulseCopy({
+    query: state.query,
+    location: state.location,
+    category: state.category,
+    verifiedOnly: state.verifiedOnly,
+    minRating: state.minRating,
+  });
+  return `
+  <div class="pc-search-pulse-strip pop" role="status" aria-live="polite">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <span class="w-7 h-7 rounded-lg bg-brand text-white grid place-items-center shrink-0">${icon('search', 14)}</span>
+      <span class="text-xs sm:text-sm font-semibold truncate">${esc(txt)}</span>
+    </div>
+    <div class="w-20 pc-loader-track shrink-0"><span class="pc-loader-runner"></span></div>
+  </div>`;
+};
+
 const workerCardSkeletonHTML = () => `
-  <article aria-hidden="true" class="bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
+  <article aria-hidden="true" class="pc-skel-stagger bg-white rounded-2xl border border-slate-200 overflow-hidden flex flex-col">
     <div class="h-10 pc-skel"></div>
     <div class="p-4 pt-0 flex-1 flex flex-col gap-3">
       <div class="flex items-end justify-between -mt-7">
@@ -1289,21 +1728,36 @@ const workerCardSkeletonHTML = () => `
     </div>
   </article>`;
 
-const marketSkeletonHTML = (count = 6) => `
-  <div class="mt-6" aria-busy="true" aria-label="Loading professionals">
-    <div class="flex items-baseline justify-between gap-3">
-      <div class="h-6 w-40 rounded-lg pc-skel"></div>
-      <div class="h-4 w-20 rounded-lg pc-skel"></div>
-    </div>
-    <div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+const marketSkeletonHTML = (count = 6) => {
+  const copy = LOADERS.getDirectoryLoaderCopy({
+    query: state.query,
+    location: state.location,
+    category: state.category,
+    verifiedOnly: state.verifiedOnly,
+    minRating: state.minRating,
+    page: state.workersPage,
+  });
+  return `
+  <div class="mt-6 grid gap-5" aria-busy="true" aria-label="${esc(copy.headline)}">
+    ${anticipationBannerHTML({
+      isSearch: copy.isSearch,
+      ic: copy.isSearch ? 'search' : 'users',
+      headline: copy.headline,
+      querySummary: copy.querySummary,
+      steps: copy.steps,
+    })}
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
       ${Array.from({ length: count }, workerCardSkeletonHTML).join('')}
     </div>
   </div>`;
+};
 
-const profileSkeletonHTML = () => `
-  <section class="max-w-3xl mx-auto px-5 py-6 pb-32" aria-busy="true" aria-label="Loading profile">
-    <div class="h-4 w-32 rounded-lg pc-skel"></div>
-    <div class="mt-4 bg-white rounded-3xl border border-slate-200 overflow-hidden">
+const profileSkeletonHTML = () => {
+  const copy = LOADERS.getProfileLoaderCopy();
+  return `
+  <section class="max-w-3xl mx-auto px-5 py-6 pb-32 grid gap-4" aria-busy="true" aria-label="Loading profile">
+    ${anticipationBannerHTML({ ic: 'user', headline: copy.headline, steps: copy.steps })}
+    <div class="bg-white rounded-3xl border border-slate-200 overflow-hidden">
       <div class="h-36 sm:h-44 pc-skel"></div>
       <div class="px-5 pb-6 -mt-10">
         <div class="ring-4 ring-white rounded-full w-fit"><div style="width:80px;height:80px" class="rounded-full pc-skel"></div></div>
@@ -1334,6 +1788,7 @@ const profileSkeletonHTML = () => `
       </div>
     </div>
   </section>`;
+};
 
 const resultsHTML = () => {
   if (state.workersLoading) {
@@ -1364,7 +1819,7 @@ const resultsHTML = () => {
             <p class="font-bold text-ink">No professionals listed yet</p>
             <p class="text-sm mt-1">Profiles published by skilled pros will appear here.</p>
           </div>`)
-      : `<div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">${list.map((w) => workerCard(w)).join('')}</div>` + pager);
+      : `<div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pop">${list.map((w) => workerCard(w)).join('')}</div>` + pager);
 };
 
 const syncSearchClearButtons = () => {
@@ -1378,9 +1833,12 @@ const updateMarket = () => {
   if (!$('#tiles')) return;
   $('#tiles').innerHTML = tilesHTML();
   $('#toolbar').innerHTML = toolbarHTML();
+  if ($('#session-brief-slot')) $('#session-brief-slot').innerHTML = sessionBriefBannerHTML();
   $('#results').innerHTML = resultsHTML();
   [['query', state.query], ['location', state.location]].forEach(([k, v]) => { const i = $(`[data-field="${k}"]`); if (i && i.value !== v) i.value = v; });
   syncSearchClearButtons();
+  syncSearchUIState();
+  syncLoaderTicker();
 };
 
 const marketplace = () => {
@@ -1399,7 +1857,7 @@ const marketplace = () => {
           <button type="button" data-action="role" data-role="worker" class="rounded-xl bg-amber-rate hover:brightness-95 text-ink font-bold px-4 py-2 text-xs sm:text-sm transition whitespace-nowrap shrink-0">${state.myProfile ? 'Worker profile' : 'List a service'}</button>
         </div>` : ''}
       </div>
-      <div class="mt-5 bg-white rounded-2xl p-2 flex flex-col sm:flex-row gap-2 text-ink shadow-lg border border-slate-200 pc-search-bar">
+      <div id="market-search-bar" class="mt-5 bg-white rounded-2xl p-2 flex flex-col sm:flex-row gap-2 text-ink shadow-lg border border-slate-200 pc-search-bar ${state.workersLoading || state.searchPulse ? 'is-searching' : ''}">
         <label class="flex-1 flex items-center gap-2 px-3 py-2">${icon('search', 18, 'text-brand')}
           <input data-field="query" value="${esc(state.query)}" placeholder="Search by skill, service, or name" class="w-full bg-transparent outline-none">
           <button type="button" data-action="clear-query" data-clear-btn="query" aria-label="Clear search" class="${state.query ? '' : 'hidden '}w-9 h-9 rounded-full bg-slate-100 text-slate-600 font-bold shrink-0">×</button>
@@ -1408,12 +1866,15 @@ const marketplace = () => {
           <input data-field="location" value="${esc(state.location)}" placeholder="Area or city" class="w-full bg-transparent outline-none">
           <button type="button" data-action="clear-location" data-clear-btn="location" aria-label="Clear location" class="${state.location ? '' : 'hidden '}w-9 h-9 rounded-full bg-slate-100 text-slate-600 font-bold shrink-0">×</button>
         </label>
+        <div class="pc-search-beam" aria-hidden="true"><span></span></div>
       </div>
     </section>
   </div>
   <section class="max-w-6xl mx-auto px-5 py-7 pb-16">
     <div id="tiles" class="flex flex-wrap gap-2">${tilesHTML()}</div>
     <div id="toolbar" class="mt-5 pt-5 border-t border-slate-200">${toolbarHTML()}</div>
+    <div id="session-brief-slot">${sessionBriefBannerHTML()}</div>
+    <div id="search-pulse-slot">${searchPulseStripHTML()}</div>
     <div id="results">${resultsHTML()}</div>
   </section>`;
 };
@@ -1436,6 +1897,7 @@ const profileDetail = () => {
     : `<p class="mt-2 text-sm text-slate-500">No portfolio photos uploaded yet.</p>`;
 
   const shareUrl = `${location.href.split('#')[0]}#pro/${encodeURIComponent(w.id)}`;
+  const saved = isSaved(w.id);
 
   return `
   <section class="max-w-3xl mx-auto px-5 py-6 pb-32 pop">
@@ -1443,10 +1905,16 @@ const profileDetail = () => {
     <div class="mt-4 bg-white rounded-3xl border border-slate-200 overflow-hidden">
       <div class="h-36 sm:h-44" style="background:linear-gradient(120deg,${a},${b})"></div>
       <div class="px-5 pb-6 -mt-10">
-        <div class="ring-4 ring-white rounded-full w-fit">${avatar(w, 80)}</div>
-        <h2 class="mt-3 text-2xl font-extrabold flex items-center gap-2">${esc(w.name)}${w.verified ? icon('badge-check', 24, 'text-sky-500') : ''}</h2>
+        <div class="flex items-end justify-between gap-3">
+          <div class="ring-4 ring-white rounded-full w-fit">${avatar(w, 80)}</div>
+          <div class="flex items-center gap-2">
+            <button type="button" data-action="qr-open" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:border-brand/40 hover:text-brand">${icon('qr-code', 15)} QR card</button>
+            <button type="button" data-action="bookmark" data-id="${esc(w.id)}" aria-pressed="${saved}" aria-label="${saved ? 'Remove from saved' : 'Save pro'}" class="pc-bm-btn">${icon('bookmark', 16, saved ? 'fill-amber-rate' : '')}</button>
+          </div>
+        </div>
+        <h2 class="mt-3 text-2xl font-extrabold flex items-center gap-2">${esc(w.name)}${w.verified ? icon('badge-check', 24, 'text-emerald-600') : ''}</h2>
         <p class="text-slate-500 flex items-center gap-1 mt-1">${icon('map-pin', 16)} ${esc(w.area)}</p>
-        <div class="mt-3 flex flex-wrap gap-2">${badge(w.category, ic)}${w.verified ? badge('ID verified', 'shield-check', 'green') : ''}${badge(w.type, w.type === 'Business' ? 'briefcase' : 'user')}</div>
+        <div class="mt-3 flex flex-wrap items-center gap-2">${badge(w.category, ic)}${availabilityBadge(w)}${w.rateNote ? `<span class="pc-rate-chip">${icon('tag', 12)}${esc(w.rateNote)}</span>` : ''}${w.verified ? badge('ID verified', 'shield-check', 'green') : ''}${badge(w.type, w.type === 'Business' ? 'briefcase' : 'user')}</div>
         <div class="mt-5 grid grid-cols-3 gap-3 text-center">
           <div class="rounded-2xl bg-slate-50 py-3"><div class="font-extrabold text-lg flex justify-center items-center gap-1">${icon('star', 16, 'fill-amber-rate text-amber-rate')}${w.reviews > 0 ? w.rating : '—'}</div><div class="text-xs text-slate-500">${w.reviews} reviews</div></div>
           <div class="rounded-2xl bg-slate-50 py-3"><div class="font-extrabold text-lg">${w.years} yrs</div><div class="text-xs text-slate-500">Experience</div></div>
@@ -1455,7 +1923,7 @@ const profileDetail = () => {
         <h3 class="mt-6 font-bold">About</h3><p class="mt-1 text-slate-600 leading-relaxed">${esc(w.bio) || 'No bio added yet.'}</p>
         <h3 class="mt-6 font-bold">What clients say</h3>${testimonialsHTML(w)}
         <div class="mt-6 rounded-2xl bg-brand-soft p-4 flex items-center justify-between gap-3"><div><div class="font-bold text-brand">Not sure what to say?</div><div class="text-sm text-slate-600">Describe your job in 20 seconds. We write the WhatsApp message for you.</div></div><button data-action="brief" class="shrink-0 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-sm transition-colors">Send job brief</button></div>
-        <div class="mt-4 text-xs text-slate-500 leading-relaxed">ProConnect only connects you. Agree the price and the work with the pro directly. <button data-action="terms" class="underline hover:text-brand">Terms</button> · <button data-action="report-open" class="underline hover:text-brand">Report this profile</button>
+        <div class="mt-4 text-xs text-slate-500 leading-relaxed">Nkabom only connects you. Agree the price and the work with the pro directly. <button data-action="terms" class="underline hover:text-brand">Terms</button> · <button data-action="report-open" class="underline hover:text-brand">Report this profile</button>
           <details class="mt-2"><summary class="cursor-pointer font-semibold text-slate-600">Safety tips</summary><ol class="mt-2 list-decimal pl-5 grid gap-1"><li>Agree on the work and price in writing on WhatsApp before starting.</li><li>Do not pay everything upfront.</li><li>Check the pro's previous work and ask for references.</li><li>Meet in a safe place, and tell someone when a stranger is coming to your home.</li><li>Report suspicious profiles to us.</li></ol></details></div>
         <h3 class="mt-6 font-bold">Portfolio</h3>${portfolioHTML}
       </div>
@@ -1463,14 +1931,144 @@ const profileDetail = () => {
     <div class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-slate-200 p-3">
       <div class="max-w-3xl mx-auto flex gap-3"><div class="flex-1">${waButton(w, true)}</div>
         <a href="tel:+${toWa(w.phone)}" class="inline-flex items-center justify-center gap-2 rounded-xl border-2 border-brand text-brand font-bold px-5 hover:bg-brand-soft">${icon('phone', 20)}<span class="hidden sm:inline">Call</span></a>
-        <a href="https://wa.me/?text=${encodeURIComponent(`${w.name} on ProConnect: ${shareUrl}`)}" target="_blank" rel="noopener noreferrer" aria-label="Share this profile" class="inline-flex items-center justify-center rounded-xl border-2 border-slate-200 text-slate-600 px-4 hover:bg-slate-50">${icon('share-2', 20)}</a></div>
+        <a href="https://wa.me/?text=${encodeURIComponent(`${w.name} on Nkabom: ${shareUrl}`)}" target="_blank" rel="noopener noreferrer" aria-label="Share this profile" class="inline-flex items-center justify-center rounded-xl border-2 border-slate-200 text-slate-600 px-4 hover:bg-slate-50">${icon('share-2', 20)}</a></div>
     </div>
   </section>`;
 };
 
+const dashboardSkeletonHTML = () => {
+  const copy = LOADERS.getDashboardLoaderCopy(Boolean(state.myProfile));
+  return `
+  <section class="max-w-6xl mx-auto px-5 py-8 grid gap-6" aria-busy="true" aria-label="Loading worker dashboard">
+    ${anticipationBannerHTML({ ic: 'briefcase', headline: copy.headline, steps: copy.steps })}
+    <div class="grid lg:grid-cols-5 gap-6">
+      <div class="lg:col-span-3 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-4">
+        <div class="h-7 w-56 rounded-lg pc-skel"></div>
+        <div class="h-4 w-3/4 rounded-lg pc-skel"></div>
+        <div class="h-10 w-44 rounded-xl pc-skel"></div>
+        <div class="h-12 w-full rounded-xl pc-skel"></div>
+        <div class="flex items-center gap-4">
+          <div style="width:72px;height:72px" class="rounded-full pc-skel shrink-0"></div>
+          <div class="h-10 w-36 rounded-xl pc-skel"></div>
+        </div>
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div class="h-12 rounded-xl pc-skel"></div>
+          <div class="h-12 rounded-xl pc-skel"></div>
+        </div>
+        <div class="h-24 w-full rounded-xl pc-skel"></div>
+        <div class="h-12 w-full rounded-xl pc-skel"></div>
+      </div>
+      <div class="lg:col-span-2 grid gap-4 content-start">
+        <div class="bg-white rounded-3xl border border-slate-200 p-5 grid gap-3">
+          <div class="h-4 w-28 rounded-lg pc-skel"></div>
+          <div class="h-6 w-40 rounded-lg pc-skel"></div>
+          <div class="h-12 w-full rounded-xl pc-skel"></div>
+        </div>
+        ${workerCardSkeletonHTML()}
+      </div>
+    </div>
+  </section>`;
+};
+
+const analyticsCard = () => {
+  const mp = state.myProfile;
+  const an = state.analytics;
+  if (!mp) return '';
+  const st = an && an.strength ? an.strength : { score: 0, completedCount: 0, totalCount: 5, items: [] };
+  return `
+  <div class="rounded-3xl bg-white border border-slate-200 p-5 grid gap-4">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="font-bold flex items-center gap-2">${icon('trending-up', 18, 'text-brand')} Reach &amp; profile strength</h3>
+      <span class="text-xs font-extrabold text-brand tabular-nums">${st.score}% ready</span>
+    </div>
+    <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="rounded-2xl bg-slate-50 p-2.5"><div class="font-extrabold text-lg text-ink tabular-nums">${an ? an.views7d : 0}</div><div class="text-[11px] text-slate-500">Views (7d)</div></div>
+      <div class="rounded-2xl bg-slate-50 p-2.5"><div class="font-extrabold text-lg text-emerald-600 tabular-nums">${an ? an.waClicks7d : 0}</div><div class="text-[11px] text-slate-500">WA leads (7d)</div></div>
+      <div class="rounded-2xl bg-slate-50 p-2.5"><div class="font-extrabold text-lg text-ink tabular-nums">${an ? an.totalViews : 0}</div><div class="text-[11px] text-slate-500">Total views</div></div>
+    </div>
+    <div class="grid gap-2">
+      <div class="pc-strength-bar"><div class="pc-strength-fill" style="width:${st.score}%"></div></div>
+      <ul class="grid gap-1.5 text-xs text-slate-600">
+        ${st.items.map((it) => `<li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full grid place-items-center shrink-0 ${it.done ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}">${icon('check', 11)}</span><span class="${it.done ? 'text-slate-500' : 'font-semibold text-ink'}">${esc(it.label)}</span></li>`).join('')}
+      </ul>
+    </div>
+  </div>`;
+};
+
+const profileUrlFor = (w) => `${location.href.split('#')[0]}#pro/${encodeURIComponent(w.id)}`;
+
+const qrPosterCard = () => {
+  const mp = state.myProfile;
+  if (!mp) return '';
+  const url = profileUrlFor(mp);
+  const qrSvg = window.NKABOM_QR ? window.NKABOM_QR.toSvg(url, { px: 132, margin: 2 }) : '';
+  return `
+  <div class="rounded-3xl bg-white border border-slate-200 p-5 grid gap-3">
+    <h3 class="font-bold flex items-center gap-2">${icon('qr-code', 18, 'text-brand')} Shareable QR poster</h3>
+    <p class="text-xs text-slate-500 leading-relaxed">Print for your workshop or share on WhatsApp Status. Customers scan to open your portfolio and message you.</p>
+    <div class="flex items-center gap-4">
+      <div class="pc-qr-frame shrink-0">${qrSvg}</div>
+      <div class="grid gap-2 flex-1 min-w-0">
+        <button type="button" data-action="qr-download" data-id="${esc(mp.id)}" class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand text-white font-bold px-3 py-2.5 text-xs whitespace-nowrap">${icon('download', 14)} Download Poster</button>
+        <button type="button" data-action="copy-profile-link" data-url="${esc(url)}" class="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold hover:bg-slate-50 whitespace-nowrap">${icon('copy', 14)} Copy link</button>
+        <a href="https://wa.me/?text=${encodeURIComponent(`Book me directly on Nkabom: ${url}`)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center gap-1.5 rounded-xl bg-wa px-3 py-2 text-xs font-bold whitespace-nowrap">${icon('message-circle', 14)} Share WhatsApp</a>
+      </div>
+    </div>
+  </div>`;
+};
+
+const verificationCard = () => {
+  const mp = state.myProfile;
+  if (!mp) return '';
+  if (mp.verified) {
+    return `<div class="rounded-3xl bg-white border border-slate-200 p-5 flex items-start gap-3">
+      <span class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 grid place-items-center shrink-0">${icon('badge-check', 22)}</span>
+      <div><h3 class="font-bold text-ink">ID Verified</h3><p class="text-xs text-slate-500 mt-0.5">Your Ghana Card or trade registration has been confirmed. Your Verified badge is live in search.</p></div>
+    </div>`;
+  }
+  const vr = state.verif;
+  const vf = state.verifForm;
+  if (vr && vr.status === 'pending') {
+    return `<div class="rounded-3xl bg-white border border-slate-200 p-5 grid gap-2">
+      <div class="flex items-center justify-between gap-2">
+        <h3 class="font-bold flex items-center gap-2">${icon('shield-check', 18, 'text-brand')} ID Verification</h3>
+        <span class="pc-avail-badge pc-avail-appointment">Pending review</span>
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed">We received your <strong>${esc(vr.docType)}</strong> request${vr.docRef ? ` (Ref: ${esc(vr.docRef)})` : ''}. Our admin team keeps submitted documents private outside public uploads.</p>
+    </div>`;
+  }
+  const input = 'w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+  return `
+  <form data-form="verify-request" class="rounded-3xl bg-white border border-slate-200 p-5 grid gap-3">
+    <div class="flex items-center justify-between gap-2">
+      <h3 class="font-bold flex items-center gap-2">${icon('shield-check', 18, 'text-brand')} Get ID Verified</h3>
+      ${vr && vr.status === 'rejected' ? '<span class="pc-avail-badge pc-avail-busy">Needs update</span>' : ''}
+    </div>
+    ${vr && vr.status === 'rejected' ? `<p class="text-xs text-red-600">${esc(vr.adminNote || 'Please double-check your reference or upload a clearer photo.')}</p>` : `<p class="text-xs text-slate-500 leading-relaxed">Verify with your Ghana Card or Business Registration to earn the green Verified badge.</p>`}
+    <label class="grid gap-1 text-xs font-semibold text-slate-600">Document type
+      <select name="docType" data-field="verifForm.docType" class="${input}">
+        ${['Ghana Card', 'Business Registration', 'Trade Certificate'].map((t) => `<option value="${t}" ${vf.docType === t ? 'selected' : ''}>${t}</option>`).join('')}
+      </select>
+    </label>
+    <label class="grid gap-1 text-xs font-semibold text-slate-600">ID / Registration reference
+      <input name="docRef" data-field="verifForm.docRef" maxlength="40" value="${esc(vf.docRef)}" placeholder="e.g. GHA-000000000-0" class="${input}">
+    </label>
+    <label class="cursor-pointer inline-flex items-center justify-between gap-2 rounded-xl border border-dashed border-slate-400 px-3 py-2 text-xs font-semibold hover:bg-slate-50">
+      <span class="truncate">${vf.fileName ? `Selected: ${esc(vf.fileName)}` : 'Attach ID photo (optional, EXIF stripped)'}</span>
+      ${icon('upload', 15)}
+      <input type="file" accept="image/jpeg,image/png,image/webp" data-file="verifDoc" class="hidden">
+    </label>
+    ${vf.error ? `<p class="text-xs text-red-600" role="alert">${esc(vf.error)}</p>` : ''}
+    <button class="rounded-xl bg-brand text-white font-bold py-2.5 text-xs" ${vf.busy ? 'disabled' : ''}>${vf.busy ? 'Submitting…' : 'Submit for verification'}</button>
+  </form>`;
+};
+
 const dashboard = () => {
+  if (state.dashboardLoading) return dashboardSkeletonHTML();
   const d = state.draft;
   const mp = state.myProfile;
+  const saving = state.busy === 'save';
+  const saveCopy = saving ? LOADERS.getProfileSaveLoaderCopy(!mp) : null;
   const input = 'w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
   const portfolioList = (mp && mp.portfolio) || [];
   return `
@@ -1495,13 +2093,33 @@ const dashboard = () => {
           <label class="mt-3 grid gap-1 text-xs font-semibold text-slate-500">Or type your own category (e.g. Graphic Design, Video Editing)
             <input class="${input} text-sm text-ink" data-field="draft.category" maxlength="40" value="${esc(d.category)}" placeholder="e.g. Graphic Design"></label></div>
           <div class="grid sm:grid-cols-2 gap-4">
-            <label class="grid gap-1 text-sm font-semibold">Service area<input class="${input}" data-field="draft.area" maxlength="80" value="${esc(d.area)}" placeholder="e.g. Kumasi – Ahodwo"></label>
+            <label class="grid gap-1 text-sm font-semibold">Service areas <span class="text-xs font-normal text-slate-400">Separate neighborhoods with commas</span><input class="${input}" data-field="draft.area" maxlength="80" value="${esc(d.area)}" placeholder="e.g. East Legon, Osu, Tema"></label>
             <label class="grid gap-1 text-sm font-semibold">WhatsApp number<input class="${input}" inputmode="tel" maxlength="20" data-field="draft.phone" value="${esc(d.phone)}" placeholder="024 000 0000"></label>
           </div>
-          <label class="grid gap-1 text-sm font-semibold">Years of experience<input type="number" min="0" max="70" class="${input}" data-field="draft.years" value="${esc(d.years)}"></label>
+          <div>
+            <div class="text-sm font-semibold mb-2">Availability status</div>
+            <div class="flex flex-wrap gap-2">
+              ${Object.entries(AVAIL_META).map(([k, m]) => `<button type="button" data-action="draft-avail" data-val="${k}" class="rounded-xl px-3.5 py-2 text-xs font-bold border transition-colors whitespace-nowrap shrink-0 ${(d.availability || 'available') === k ? 'bg-brand text-white border-brand' : 'border-slate-300 text-slate-600 hover:border-brand/50'}">${m.label}</button>`).join('')}
+            </div>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <label class="grid gap-1 text-sm font-semibold">Years of experience<input type="number" min="0" max="70" class="${input}" data-field="draft.years" value="${esc(d.years)}"></label>
+            <label class="grid gap-1 text-sm font-semibold">Starting / call-out fee note <span class="text-xs font-normal text-slate-400">Optional</span><input class="${input}" data-field="draft.rateNote" maxlength="60" value="${esc(d.rateNote)}" placeholder="e.g. Free site quote or From GH₵50"></label>
+          </div>
           <label class="grid gap-1 text-sm font-semibold">Short bio<textarea rows="3" maxlength="600" class="${input}" data-field="draft.bio" placeholder="What you do best and how you work.">${esc(d.bio)}</textarea></label>
-          <button id="publish" data-action="publish" class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 inline-flex items-center justify-center gap-2 transition-colors" ${draftReady() && state.busy !== 'save' ? '' : 'disabled'}>${icon('check', 18)} ${state.busy === 'save' ? 'Saving…' : mp ? 'Save changes' : 'Publish profile'}</button>
-          <p id="hint" class="text-xs text-slate-500 -mt-2 ${draftReady() ? 'hidden' : ''}">Add your name, category, service area and a WhatsApp number to publish.</p>
+          ${saving && saveCopy ? `
+            <div class="pc-auth-progress grid gap-2.5 pop" role="status" aria-live="polite">
+              <div class="flex items-center gap-3">
+                <div class="pc-loader-emblem">${icon('briefcase', 18)}</div>
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-extrabold text-ink">${esc(saveCopy.headline)}</div>
+                  <div class="text-xs text-slate-600 pc-step-fade" data-loader-idx="0" data-loader-steps="${esc(JSON.stringify(saveCopy.steps))}">${esc(saveCopy.steps[0])}</div>
+                </div>
+              </div>
+              <div class="pc-loader-track"><span class="pc-loader-runner"></span></div>
+            </div>` : ''}
+          <button id="publish" data-action="publish" class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-bold py-3.5 inline-flex items-center justify-center gap-2 transition-colors" ${draftReady() && !saving ? '' : 'disabled'}>${icon('check', 18)} ${saving ? (mp ? 'Saving updates…' : 'Publishing profile…') : mp ? 'Save changes' : 'Publish profile'}</button>
+          <p id="hint" class="text-xs text-slate-500 -mt-2 ${draftReady() ? 'hidden' : ''}">Add your name, category, service area, years (0–70), and a WhatsApp number to publish.</p>
         </div>
       </div>
 
@@ -1528,9 +2146,12 @@ const dashboard = () => {
 
     <aside class="lg:col-span-2"><div class="lg:sticky lg:top-20 grid gap-4">
       ${planCard()}
+      ${analyticsCard()}
       <div><div class="flex items-center gap-2 font-bold mb-3">${icon('eye', 18)} How customers see you</div>
         <div id="preview">${workerCard(draftWorker(), true)}</div>
         <p class="mt-3 text-sm text-slate-500">The green button opens WhatsApp with a ready-made message to your number.</p></div>
+      ${qrPosterCard()}
+      ${verificationCard()}
       ${inviteCard()}
     </div></aside>
   </section>`;
@@ -1540,25 +2161,55 @@ const dashboard = () => {
 const phoneMock = () => `
   <div class="pc-phone-stage mx-auto">
     <div class="pc-phone-glow" aria-hidden="true"></div>
-    <div class="phone mx-auto">
-      <div class="flex items-center gap-3 bg-[#075E54] text-white px-4 pt-6 pb-3">
-        <span class="w-9 h-9 rounded-full grid place-items-center bg-white/20 font-bold shrink-0">K</span>
-        <div class="leading-tight min-w-0">
-          <div class="font-semibold text-sm flex items-center gap-1">Kwame Mensah ${icon('badge-check', 14)}</div>
-          <div id="phone-status" class="text-xs text-white/80">Plumber · online</div>
+    <div class="pc-phone-hardware mx-auto">
+      <span class="pc-hw-btn pc-hw-mute" aria-hidden="true"></span>
+      <span class="pc-hw-btn pc-hw-vol1" aria-hidden="true"></span>
+      <span class="pc-hw-btn pc-hw-vol2" aria-hidden="true"></span>
+      <span class="pc-hw-btn pc-hw-pwr" aria-hidden="true"></span>
+      <div class="phone">
+        <div class="pc-wa-phone-head text-white">
+          <div class="pc-phone-statusbar" aria-hidden="true">
+            <span>9:41</span>
+            <div class="pc-phone-island"><span class="pc-phone-island-lens"></span></div>
+            <span class="inline-flex items-center gap-1.5">
+              <svg width="13" height="10" viewBox="0 0 14 10" fill="currentColor"><rect x="0" y="7" width="2.2" height="3" rx="0.6"/><rect x="3.5" y="5" width="2.2" height="5" rx="0.6"/><rect x="7" y="3" width="2.2" height="7" rx="0.6"/><rect x="10.5" y="0.5" width="2.2" height="9.5" rx="0.6"/></svg>
+              <span>5G</span>
+              <svg width="18" height="10" viewBox="0 0 20 11" fill="none"><rect x="0.7" y="1" width="16" height="9" rx="2.2" stroke="currentColor" stroke-width="1.3"/><rect x="2.3" y="2.6" width="12.4" height="5.8" rx="1" fill="currentColor"/><path d="M18 4v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            </span>
+          </div>
+          <div class="flex items-center justify-between gap-2 px-3 pb-3 pt-1.5">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="text-white/90 shrink-0">${icon('arrow-left', 16)}</span>
+              <span class="w-9 h-9 rounded-full grid place-items-center bg-white/20 font-bold shrink-0">K</span>
+              <div class="leading-tight min-w-0">
+                <div class="font-semibold text-sm flex items-center gap-1 truncate">Kwame Mensah ${icon('badge-check', 14)}</div>
+                <div id="phone-status" class="text-[11px] text-white/90 truncate">Plumber · online</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2.5 text-white/90 shrink-0" aria-hidden="true">
+              ${icon('video', 16)}
+              ${icon('phone', 15)}
+            </div>
+          </div>
         </div>
-      </div>
-      <div id="chat" class="chat-bg p-3 flex flex-col gap-2 text-[13px] h-[21rem] justify-end overflow-hidden">
-        ${[['out', 'Hi Kwame, my kitchen tap is leaking badly. Can you come today?', '10:02'],
-           ['in', 'Hello! Yes, I can be there by 3pm. Which area are you in?', '10:03'],
-           ['out', 'Ahodwo, Kumasi. Can you send a quote?', '10:03'],
-           ['in', 'Inspection is free. Most tap repairs are quick. See you at 3.', '10:04']]
-          .map(([d, t, time]) => `<div class="msg ${d === 'out' ? 'self-end wa-msg-out pc-msg-out-pop' : 'self-start wa-msg-in pc-msg-in-pop'} rounded-xl px-3 py-2 max-w-[82%] shadow-sm">${t}<span class="block text-[10px] text-slate-400 text-right mt-0.5">${time}${d === 'out' ? ' ✓✓' : ''}</span></div>`).join('')}
-        <div id="chat-typing" class="pc-typing-bubble hidden-slot self-start" aria-hidden="true"><span class="pc-typing-dot"></span><span class="pc-typing-dot"></span><span class="pc-typing-dot"></span></div>
-      </div>
-      <div class="pc-wa-inputbar px-3 py-2 flex items-center gap-2">
-        <div class="pc-wa-pill flex-1 rounded-full px-3 py-1.5 text-xs truncate">Message Kwame…</div>
-        <span class="w-9 h-9 rounded-full bg-wa text-white grid place-items-center shrink-0" aria-hidden="true">${icon('send', 14)}</span>
+        <div id="chat" class="chat-bg p-3 flex flex-col gap-2 text-[13px] h-[26rem] justify-end overflow-hidden">
+          <div class="pc-wa-date-chip">Today</div>
+          ${[['out', 'Hi Kwame, my kitchen tap is leaking badly. Can you come today?', '10:02'],
+             ['in', 'Hello! Yes, I can be there by 3pm. Which area are you in?', '10:03'],
+             ['out', 'Ahodwo, Kumasi. Can you send a quote?', '10:03'],
+             ['in', 'Inspection is free. Most tap repairs are quick. See you at 3.', '10:04']]
+            .map(([d, t, time]) => `<div class="msg ${d === 'out' ? 'self-end wa-msg-out pc-msg-out-pop' : 'self-start wa-msg-in pc-msg-in-pop'} rounded-xl px-3 py-2 max-w-[82%] shadow-sm">${t}<span class="block text-[10px] text-slate-400 text-right mt-0.5">${time}${d === 'out' ? '<span class="pc-wa-ticks"> ✓✓</span>' : ''}</span></div>`).join('')}
+          <div id="chat-typing" class="pc-typing-bubble hidden-slot self-start" aria-hidden="true"><span class="pc-typing-dot"></span><span class="pc-typing-dot"></span><span class="pc-typing-dot"></span></div>
+        </div>
+        <div class="pc-wa-inputbar px-2.5 py-2 flex items-center gap-2">
+          <span class="text-slate-500 shrink-0" aria-hidden="true">${icon('plus', 17)}</span>
+          <div class="pc-wa-pill flex-1 rounded-full px-3 py-1.5 text-xs flex items-center justify-between gap-2 min-w-0">
+            <span class="truncate">Message Kwame…</span>
+            <span class="text-slate-400 shrink-0" aria-hidden="true">${icon('camera', 14)}</span>
+          </div>
+          <span class="w-8 h-8 rounded-full bg-wa grid place-items-center shrink-0" aria-hidden="true">${icon('mic', 14)}</span>
+        </div>
+        <div class="pc-phone-homewrap" aria-hidden="true"><div class="pc-phone-homebar"></div></div>
       </div>
     </div>
     <div class="pc-phone-callout flex items-center gap-2 text-xs font-semibold whitespace-nowrap">
@@ -1647,6 +2298,7 @@ if (!window.__pcScrollBound) {
 function afterRender() {
   document.documentElement.classList.add('js');
   syncHeaderScroll();
+  syncLoaderTicker();
   const items = document.querySelectorAll('.reveal');
   if ('IntersectionObserver' in window) {
     const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.08 });
@@ -1662,7 +2314,7 @@ function afterRender() {
 }
 
 const BRIEF_KINDS = ['Fix a problem', 'New work', 'Just a quote'], BRIEF_WHEN = ['Today', 'This week', 'Flexible'];
-const briefText = (w, b) => `Hi ${w.name}, I found you on ProConnect.\n\nJob: ${b.kind} (${w.category})\nWhen: ${b.when}\nLocation: ${b.area || 'to be confirmed'}${b.note ? `\nDetails: ${b.note}` : ''}\n\nCan you help, and roughly what would it cost?`;
+const briefText = (w, b) => `Hi ${w.name}, I found you on Nkabom.\n\nJob: ${b.kind} (${w.category})\nWhen: ${b.when}\nLocation: ${b.area || 'to be confirmed'}${b.note ? `\nDetails: ${b.note}` : ''}\n\nCan you help, and roughly what would it cost?`;
 const briefLink = (w, b) => `https://wa.me/${toWa(w.phone)}?text=${encodeURIComponent(briefText(w, b))}`;
 const updateBrief = () => { $('#brief-preview').textContent = briefText(state.selected, state.brief); $('#brief-send').href = briefLink(state.selected, state.brief); };
 const briefSheet = () => {
@@ -1719,25 +2371,159 @@ const confirmSheet = () => {
   </div>`;
 };
 
+const compareSheet = () => {
+  if (!state.compareOpen) return '';
+  const list = state.savedWorkers.length
+    ? state.savedWorkers
+    : state.workers.filter((w) => isSaved(w.id));
+  return `
+  <div data-action="compare-close" class="fixed inset-0 z-40 bg-black/40 flex items-end sm:items-center justify-center sm:p-4">
+    <div data-action="noop" class="pop bg-white w-full max-w-4xl min-w-0 rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 max-h-[92vh] overflow-y-auto grid gap-4">
+      <div class="flex items-start justify-between gap-3">
+        <div><h3 class="text-xl font-extrabold">Compare saved professionals (${list.length})</h3><p class="text-sm text-slate-500">Review ratings, availability, fees, and experience side-by-side.</p></div>
+        <button data-action="compare-close" aria-label="Close" class="w-9 h-9 rounded-full bg-slate-100 text-lg font-bold shrink-0">×</button>
+      </div>
+      ${list.length < 2 ? `<p class="text-sm text-slate-500 py-4">Save at least 2 professionals using the bookmark icon to compare them side-by-side.</p>` : `
+      <div class="overflow-x-auto min-w-0">
+        <table class="min-w-[640px] w-full text-sm text-left">
+          <thead><tr class="border-b border-slate-200 text-xs text-slate-500 uppercase">
+            <th class="py-2 pr-4">Professional</th>
+            <th class="py-2 pr-4">Availability</th>
+            <th class="py-2 pr-4">Starting / fee</th>
+            <th class="py-2 pr-4">Rating</th>
+            <th class="py-2 pr-4">Experience</th>
+            <th class="py-2">Contact</th>
+          </tr></thead>
+          <tbody class="divide-y">
+            ${list.map((w) => `<tr>
+              <td class="py-3 pr-4">
+                <div class="flex items-center gap-2.5">${avatar(w, 36)}<div>
+                  <button type="button" data-action="open" data-id="${esc(w.id)}" class="font-bold text-ink hover:text-brand text-left">${esc(w.name)}</button>
+                  <div class="text-xs text-slate-500">${esc(w.category)} · ${esc(w.area)}</div>
+                </div></div>
+              </td>
+              <td class="py-3 pr-4">${availabilityBadge(w)}</td>
+              <td class="py-3 pr-4 text-xs text-slate-600">${w.rateNote ? esc(w.rateNote) : '<span class="text-slate-400">Quote on chat</span>'}</td>
+              <td class="py-3 pr-4 tabular-nums">${rating(w)} ${w.blazes ? `<span class="ml-1 text-xs text-orange-600 font-semibold">${w.blazes} Blazes</span>` : ''}</td>
+              <td class="py-3 pr-4 tabular-nums">${esc(w.years)} yrs</td>
+              <td class="py-3"><a href="https://wa.me/${toWa(w.phone)}" data-wa-worker="${esc(w.id)}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 rounded-xl bg-wa px-3 py-1.5 text-xs font-bold whitespace-nowrap">${icon('message-circle', 14)} WhatsApp</a></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`}
+    </div>
+  </div>`;
+};
+
+const qrSheet = () => {
+  const w = state.qrModal;
+  if (!w) return '';
+  const url = profileUrlFor(w);
+  const svg = window.NKABOM_QR ? window.NKABOM_QR.toSvg(url, { px: 200, margin: 3 }) : '';
+  return `
+  <div data-action="qr-close" class="fixed inset-0 z-40 bg-black/40 flex items-center justify-center p-4">
+    <div data-action="noop" class="pop bg-white w-full max-w-sm rounded-3xl p-6 text-center grid gap-4">
+      <div class="flex items-start justify-between gap-2 text-left">
+        <div><h3 class="text-lg font-extrabold">${esc(w.name)}</h3><p class="text-xs text-slate-500">${esc(w.category)} · ${esc(w.area)}</p></div>
+        <button data-action="qr-close" aria-label="Close" class="w-9 h-9 rounded-full bg-slate-100 text-lg font-bold">×</button>
+      </div>
+      <div class="mx-auto pc-qr-frame">${svg}</div>
+      <p class="text-xs text-slate-500">Scan to open this Nkabom profile or download a printable poster.</p>
+      <div class="flex gap-2">
+        <button type="button" data-action="copy-profile-link" data-url="${esc(url)}" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-300 px-3 py-2.5 text-xs font-semibold">${icon('copy', 14)} Copy link</button>
+        <button type="button" data-action="qr-download" data-id="${esc(w.id)}" class="flex-1 inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand text-white px-3 py-2.5 text-xs font-bold">${icon('download', 14)} Poster PNG</button>
+      </div>
+    </div>
+  </div>`;
+};
+
+async function downloadQrPoster(worker) {
+  if (!worker || !window.NKABOM_QR) return;
+  const url = profileUrlFor(worker);
+  const canvas = document.createElement('canvas');
+  canvas.width = 900;
+  canvas.height = 1180;
+  const ctx = canvas.getContext('2d');
+
+  // Warm paper background
+  ctx.fillStyle = '#FAF7F2';
+  ctx.fillRect(0, 0, 900, 1180);
+
+  // Header band
+  const grad = ctx.createLinearGradient(0, 0, 900, 290);
+  grad.addColorStop(0, '#2B1708');
+  grad.addColorStop(0.55, '#5F2D08');
+  grad.addColorStop(1, '#B45309');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 900, 270);
+
+  // Branding
+  ctx.fillStyle = '#FBBF24';
+  ctx.font = 'bold 26px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.fillText('NKABOM GHANA', 64, 86);
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '800 50px "Bricolage Grotesque", system-ui, sans-serif';
+  ctx.fillText(String(worker.name || '').slice(0, 26), 64, 152);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  ctx.font = '600 28px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.fillText(`${worker.category || ''} · ${worker.area || ''}`.slice(0, 44), 64, 202);
+
+  if (worker.rateNote) {
+    ctx.fillStyle = '#FDE68A';
+    ctx.font = 'bold 24px "Plus Jakarta Sans", system-ui, sans-serif';
+    ctx.fillText(String(worker.rateNote).slice(0, 46), 64, 240);
+  }
+
+  // White card container for QR
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  ctx.roundRect(140, 330, 620, 620, 36);
+  ctx.fill();
+  ctx.strokeStyle = '#E2DFD7';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  window.NKABOM_QR.drawOnCanvas(ctx, url, 195, 385, 510, { margin: 2, fg: '#1C1917', bg: '#FFFFFF' });
+
+  // Call to action footer
+  ctx.fillStyle = '#1C1917';
+  ctx.textAlign = 'center';
+  ctx.font = '800 34px "Bricolage Grotesque", system-ui, sans-serif';
+  ctx.fillText('Scan to view portfolio & chat on WhatsApp', 450, 1025);
+
+  ctx.fillStyle = '#5B697D';
+  ctx.font = '600 22px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.fillText(`WhatsApp: ${worker.phone || ''} · Direct contact · 0% Commission`, 450, 1072);
+
+  const link = document.createElement('a');
+  const slug = String(worker.name || 'nkabom-pro').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'nkabom-pro';
+  link.download = `${slug}-qr-poster.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  toast('QR poster downloaded.');
+}
+
 /* ---------- Terms of Service & Privacy Policy ---------- */
 const SITE = {
   updated: '22 November 2026',
-  contact: 'Email support@proconnectgh.com for help, reports, or data requests.',
-  email: 'support@proconnectgh.com',
+  contact: 'Email support@nkabomgh.com for help, reports, or data requests.',
+  email: 'support@nkabomgh.com',
   verifiedMeans: 'we have checked the professional’s Ghana Card or business registration details',
   renewal: 'Subscriptions do not renew automatically. Each month the professional pays to keep their profile live, for example by mobile money. We may send a reminder before the paid period ends',
   refunds: 'Monthly fees are non-refundable once the 30-day period starts, except for verified duplicate payments',
 };
 const TERMS = [
-  { h: 'What ProConnect is', p: [`ProConnect is an online directory that helps people find local professionals and contact them directly, mainly through WhatsApp. We only make the introduction. We are a gateway. We are not a contractor, employer, agent or insurer, and we do not handle payments for jobs between customers and professionals.`] },
+  { h: 'What Nkabom is', p: [`Nkabom is an online directory that helps people find local professionals and contact them directly, mainly through WhatsApp. We only make the introduction. We are a gateway. We are not a contractor, employer, agent or insurer, and we do not handle payments for jobs between customers and professionals.`] },
   { h: 'We are only the gateway', ul: [
-    `Any job, agreement, price, schedule, payment or contract is strictly between the customer and the professional. ProConnect is not part of it.`,
+    `Any job, agreement, price, schedule, payment or contract is strictly between the customer and the professional. Nkabom is not part of it.`,
     `We do not supervise or guarantee the quality, safety, legality, timing or pricing of any work. We also do not guarantee that a professional will show up or that a customer will pay.`,
-    `Any problem that happens outside ProConnect is between the people involved. That includes poor workmanship, damage, injury, theft, no-shows, non-payment, disputes, scams, and anything said or done on WhatsApp, by phone or in person. We cannot settle, refund or compensate for these.`,
+    `Any problem that happens outside Nkabom is between the people involved. That includes poor workmanship, damage, injury, theft, no-shows, non-payment, disputes, scams, and anything said or done on WhatsApp, by phone or in person. We cannot settle, refund or compensate for these.`,
     `Profiles are written by the professionals themselves. We do not promise they are accurate.`] },
   { h: 'Pricing and subscriptions', ul: [
-    `ProConnect is free for customers.`,
-    `Professionals pay a subscription of ${ghs(PLAN.price)} per month to keep a public profile on ProConnect.`,
+    `Nkabom is free for customers.`,
+    `Professionals pay a subscription of ${ghs(PLAN.price)} per month to keep a public profile on Nkabom.`,
     `Every new professional gets their first month free. Billing starts after the free month ends.`,
     `${SITE.renewal}.`,
     `There is nothing to cancel. If you do not pay for the next month, your profile is hidden from search when your paid period ends, and it shows again once you pay.`,
@@ -1745,7 +2531,7 @@ const TERMS = [
     `We may change the price. We will tell subscribers before a new price applies to them.`,
     `Subscription payments are handled by Paystack under Paystack's own terms. We never see or store your card or mobile money details.`,
     `A subscription does not buy a Verified badge, a higher ranking or any guarantee of work.`] },
-  { h: 'Who may use ProConnect', p: [`You must be 18 or older. If you are under 18, please use ProConnect only with a parent or guardian, and do not create a worker profile.`] },
+  { h: 'Who may use Nkabom', p: [`You must be 18 or older. If you are under 18, please use Nkabom only with a parent or guardian, and do not create a worker profile.`] },
   { h: 'Accounts', p: [`You can browse without an account. You need an account to create a worker profile. Give accurate information, keep your password private, and understand that you are responsible for what happens under your account. One profile per person or business.`] },
   { h: 'For professionals', ul: [
     `Your profile is public. It shows your name, category, area, photo, bio, WhatsApp number and the feedback you receive, and by publishing it you agree that people may contact you.`,
@@ -1760,12 +2546,12 @@ const TERMS = [
     `Professionals must not pay for, fake or pressure clients into feedback, and must not create links for jobs that did not happen.`,
     `We may remove fake, abusive or misleading feedback.`] },
   { h: 'What is not allowed', p: [`Fake or misleading profiles, pretending to be someone else, scams or fraud, illegal services, harassment or abuse, hateful, sexual or violent content, spam, copying data from the site, and anything meant to harm or disrupt it.`] },
-  { h: 'Your content', p: [`You keep ownership of what you upload, such as photos and text. You give ProConnect a free, non-exclusive right to display it on the site, and in previews of it, so that we can run and promote the service. Only upload things you have the right to use.`] },
+  { h: 'Your content', p: [`You keep ownership of what you upload, such as photos and text. You give Nkabom a free, non-exclusive right to display it on the site, and in previews of it, so that we can run and promote the service. Only upload things you have the right to use.`] },
   { h: 'Other services', p: [`WhatsApp, Paystack, our hosting provider and other third parties have their own terms and privacy rules. We are not responsible for them.`] },
   { h: 'Privacy', p: [`We collect only what we need: account details (name, email, phone), profile details, photos and feedback. Worker profile details and feedback are public. We do not sell personal data. Our Privacy Policy gives the full details, including how to ask us to correct or delete your information. We will handle personal data in line with Ghana's Data Protection Act, 2012 (Act 843).`] },
   { h: 'Removal and suspension', p: [`We may remove content or suspend accounts that break these terms or put others at risk, sometimes without warning. You can delete your profile at any time.`] },
-  { h: 'No warranty and limit of liability', p: [`ProConnect is provided "as is" and "as available". It may be interrupted or contain errors. To the fullest extent the law allows, ProConnect and its owner(s) are not liable for any loss, damage, injury or expense arising from using the site or from any dealings between users. Nothing here removes any right or liability that the law does not allow to be removed.`] },
-  { h: 'Changes', p: [`We may update these terms. The date above will change, and continuing to use ProConnect means you accept the update.`] },
+  { h: 'No warranty and limit of liability', p: [`Nkabom is provided "as is" and "as available". It may be interrupted or contain errors. To the fullest extent the law allows, Nkabom and its owner(s) are not liable for any loss, damage, injury or expense arising from using the site or from any dealings between users. Nothing here removes any right or liability that the law does not allow to be removed.`] },
+  { h: 'Changes', p: [`We may update these terms. The date above will change, and continuing to use Nkabom means you accept the update.`] },
   { h: 'Governing law', p: [`These terms are governed by the laws of Ghana.`] },
   { h: 'Contact', p: [`${SITE.contact}`] },
 ];
@@ -1774,7 +2560,7 @@ const termsScreen = () => `
   <section class="max-w-3xl mx-auto px-5 py-8 pop">
     <button data-action="terms-back" class="inline-flex items-center gap-1 text-slate-600 font-semibold hover:text-brand">${icon('arrow-left', 18)} Back</button>
     <article class="mt-4 bg-white rounded-3xl border border-slate-200 p-6 sm:p-10">
-      <h1 class="text-3xl font-extrabold">ProConnect Terms of Service</h1>
+      <h1 class="text-3xl font-extrabold">Nkabom Terms of Service</h1>
       <p class="mt-1 text-sm text-slate-500">Last updated: ${esc(SITE.updated)}</p>
       <div class="mt-6 grid gap-6">
         ${TERMS.map((s, i) => `<section><h2 class="text-lg font-bold">${i + 1}. ${s.h}</h2>${(s.p || []).map((t) => `<p class="mt-2 text-slate-600 leading-relaxed">${t}</p>`).join('')}${s.ul ? `<ul class="mt-2 list-disc pl-5 grid gap-1.5 text-slate-600 leading-relaxed">${s.ul.map((t) => `<li>${t}</li>`).join('')}</ul>` : ''}</section>`).join('')}
@@ -1785,7 +2571,7 @@ const termsScreen = () => `
 const PRIVACY = [
   {
     h: 'Who we are and scope',
-    p: [`ProConnect operates an online directory in Ghana that helps customers find local tradespeople and creatives and message them directly on WhatsApp. This Privacy Policy explains what personal data we collect, how we use and protect it, and your rights under Ghana’s Data Protection Act, 2012 (Act 843).`],
+    p: [`Nkabom operates an online directory in Ghana that helps customers find local tradespeople and creatives and message them directly on WhatsApp. This Privacy Policy explains what personal data we collect, how we use and protect it, and your rights under Ghana’s Data Protection Act, 2012 (Act 843).`],
   },
   {
     h: 'Information we collect',
@@ -1819,7 +2605,7 @@ const PRIVACY = [
   {
     h: 'Payments & third-party services',
     ul: [
-      `<strong>Paystack:</strong> Monthly professional subscriptions (${ghs(PLAN.price)}/month) are processed by Paystack under Paystack’s privacy policy. ProConnect never sees or stores your card number, CVV, or mobile money PIN.`,
+      `<strong>Paystack:</strong> Monthly professional subscriptions (${ghs(PLAN.price)}/month) are processed by Paystack under Paystack’s privacy policy. Nkabom never sees or stores your card number, CVV, or mobile money PIN.`,
       `<strong>WhatsApp:</strong> When you tap to message a professional, your conversation takes place directly inside WhatsApp and is governed by WhatsApp’s own terms and privacy policy.`,
       `<strong>Delivery partners:</strong> Optional transactional email and SMS providers may process your email address or phone number solely to deliver account messages you request.`,
     ],
@@ -1838,7 +2624,7 @@ const PRIVACY = [
   },
   {
     h: 'Security & age requirement',
-    p: [`Passwords are stored using salted cryptographic hashing, and sensitive actions are protected with session validation and CSRF checks. ProConnect worker profiles are strictly for individuals aged 18 and older.`],
+    p: [`Passwords are stored using salted cryptographic hashing, and sensitive actions are protected with session validation and CSRF checks. Nkabom worker profiles are strictly for individuals aged 18 and older.`],
   },
   {
     h: 'Your rights & contact',
@@ -1852,7 +2638,7 @@ const privacyScreen = () => `
     <article class="mt-4 bg-white rounded-3xl border border-slate-200 p-6 sm:p-10 grid gap-6 text-slate-600 leading-relaxed">
       <div>
         <p class="text-xs font-bold tracking-widest text-amber-rate uppercase">Privacy &amp; Data Protection</p>
-        <h1 class="mt-2 text-3xl font-extrabold text-ink">ProConnect Privacy Policy</h1>
+        <h1 class="mt-2 text-3xl font-extrabold text-ink">Nkabom Privacy Policy</h1>
         <p class="mt-1 text-sm text-slate-500">Last updated: ${esc(SITE.updated)} · Ghana Data Protection Act, 2012 (Act 843)</p>
       </div>
 
@@ -1882,7 +2668,7 @@ const privacyScreen = () => `
         </div>
         <div class="flex flex-wrap gap-3">
           <button data-action="terms" class="rounded-xl border border-brand/30 bg-white hover:bg-slate-50 text-brand font-bold px-4 py-2 text-sm transition-colors">Terms of Service</button>
-          <button data-action="about" class="rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2 text-sm transition-colors">About ProConnect</button>
+          <button data-action="about" class="rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2 text-sm transition-colors">About Nkabom</button>
         </div>
       </div>
     </article>
@@ -1893,13 +2679,13 @@ const aboutScreen = () => `
     <button data-action="terms-back" class="inline-flex items-center gap-1 text-slate-600 font-semibold hover:text-brand">${icon('arrow-left', 18)} Back</button>
     <article class="mt-4 bg-white rounded-3xl border border-slate-200 overflow-hidden text-slate-600 leading-relaxed">
       <div class="band p-7 sm:p-10 text-white">
-        <p class="text-xs font-bold tracking-widest text-amber-rate uppercase">About ProConnect</p>
+        <p class="text-xs font-bold tracking-widest text-amber-rate uppercase">About Nkabom</p>
         <h1 class="mt-2 text-2xl sm:text-4xl font-extrabold text-white text-balance">Connecting Ghana directly with trusted local professionals.</h1>
         <p class="mt-3 text-sm sm:text-base text-white/80 max-w-2xl">Direct WhatsApp introductions with zero commission, verified client reviews, and transparent flat-rate pricing for local experts.</p>
       </div>
 
       <div class="p-6 sm:p-10 grid gap-6">
-        <p class="text-base text-slate-600">ProConnect makes it effortless to find skilled tradespeople and creatives near you — from plumbers, electricians, and carpenters to graphic designers and technicians — and reach them directly on WhatsApp in one tap.</p>
+        <p class="text-base text-slate-600">Nkabom makes it effortless to find skilled tradespeople and creatives near you — from plumbers, electricians, and carpenters to graphic designers and technicians — and reach them directly on WhatsApp in one tap.</p>
 
         <div class="grid sm:grid-cols-2 gap-4">
           <div class="rounded-2xl bg-slate-50 border border-slate-200 p-5">
@@ -2066,10 +2852,30 @@ function routeFromHash() {
   }
 }
 
+const reviewSkeletonHTML = () => {
+  const copy = LOADERS.getReviewLoaderCopy();
+  return `
+  <section class="max-w-xl mx-auto px-5 py-10 grid gap-4" aria-busy="true" aria-label="Loading feedback invitation">
+    ${anticipationBannerHTML({ ic: 'star', headline: copy.headline, steps: copy.steps })}
+    <div class="bg-white rounded-3xl border border-slate-200 p-6 grid gap-4">
+      <div class="flex items-center gap-4">
+        <div style="width:64px;height:64px" class="rounded-full pc-skel shrink-0"></div>
+        <div class="grid gap-2">
+          <div class="h-3.5 w-24 rounded-lg pc-skel"></div>
+          <div class="h-6 w-44 rounded-lg pc-skel"></div>
+          <div class="h-3.5 w-32 rounded-lg pc-skel"></div>
+        </div>
+      </div>
+      <div class="h-20 w-full rounded-2xl pc-skel"></div>
+      <div class="h-24 w-full rounded-2xl pc-skel"></div>
+    </div>
+  </section>`;
+};
+
 const reviewScreen = () => {
   const r = state.review; const wrap = (x) => `<section class="max-w-xl mx-auto px-5 py-10 pop">${x}</section>`;
-  if (!r || r.loading) return wrap('<p class="text-center text-slate-500">Loading…</p>');
-  if (r.error) return wrap(`<div class="bg-white rounded-3xl border border-slate-200 p-8 text-center"><h1 class="text-2xl font-extrabold">This link cannot be used</h1><p class="mt-2 text-slate-600">${esc(r.error)}</p><button data-action="rv-home" class="mt-5 rounded-xl bg-brand text-white font-bold px-6 py-3">Go to ProConnect</button></div>`);
+  if (!r || r.loading) return reviewSkeletonHTML();
+  if (r.error) return wrap(`<div class="bg-white rounded-3xl border border-slate-200 p-8 text-center"><h1 class="text-2xl font-extrabold">This link cannot be used</h1><p class="mt-2 text-slate-600">${esc(r.error)}</p><button data-action="rv-home" class="mt-5 rounded-xl bg-brand text-white font-bold px-6 py-3">Go to Nkabom</button></div>`);
   const w = { tint: 0, ...r.worker };
   if (r.done) return wrap(`<div class="bg-white rounded-3xl border border-slate-200 p-8 text-center"><div class="mx-auto w-20 h-20 rounded-full bg-orange-50 grid place-items-center">${icon('flame', 40, 'fill-orange-400 text-orange-500')}</div><h1 class="mt-5 text-3xl font-extrabold">Thank you!</h1><p class="mt-2 text-slate-600">Your feedback is now on ${esc(w.name)}'s profile. It helps other people choose with confidence.</p><button data-action="rv-home" class="mt-6 rounded-xl bg-brand text-white font-bold px-6 py-3">Find a professional</button></div>`);
   const input = 'w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
@@ -2105,7 +2911,7 @@ function render() {
       : s === 'review' ? reviewScreen()
       : dashboard()) +
     (showFooter ? siteFooter() : '') +
-    bottomNav() + briefSheet() + reportSheet() + confirmSheet();
+    bottomNav() + briefSheet() + reportSheet() + confirmSheet() + compareSheet() + qrSheet();
   afterRender();
 }
 
@@ -2120,9 +2926,59 @@ function go(screen) {
   state.brief = null;
   state.reportModal = null;
   state.confirmModal = null;
+  state.compareOpen = false;
+  state.qrModal = null;
   state.screen = target;
   render();
   window.scrollTo(0, 0);
+}
+
+async function openDashboardWithAnticipation() {
+  state.role = 'worker';
+  state.dashboardLoading = true;
+  go('dashboard');
+  const startedAt = Date.now();
+  try {
+    const [mp, sub, an, vr] = await Promise.all([
+      AUTH.getMyWorkerProfile().catch(() => state.myProfile),
+      BILLING.getStatus().catch(() => state.sub),
+      WORKERS.getAnalytics().catch(() => state.analytics),
+      WORKERS.getVerification().catch(() => ({ latest: state.verif })),
+    ]);
+    if (mp !== undefined) state.myProfile = mp;
+    if (sub !== undefined) state.sub = sub;
+    if (an !== undefined) state.analytics = an;
+    if (vr && vr.latest !== undefined) state.verif = vr.latest;
+    if (state.user) {
+      state.draft = state.myProfile ? { ...freshDraft(), ...state.myProfile } : { ...freshDraft(), name: state.user.name || '', phone: state.user.phone || '' };
+    }
+  } catch {}
+  const elapsed = Date.now() - startedAt;
+  if (elapsed < 420) await waitMs(420 - elapsed);
+  state.dashboardLoading = false;
+  if (state.screen === 'dashboard') render();
+}
+
+async function openAccountWithAnticipation() {
+  state.showAcctPw = false;
+  state.accountLoading = true;
+  go('account');
+  const startedAt = Date.now();
+  try {
+    const [me, mp, sub] = await Promise.all([
+      AUTH.restoreSession(),
+      AUTH.getMyWorkerProfile().catch(() => state.myProfile),
+      BILLING.getStatus().catch(() => state.sub),
+    ]);
+    if (me) state.user = me;
+    if (mp !== undefined) state.myProfile = mp;
+    if (sub !== undefined) state.sub = sub;
+    await refreshSavedWorkers();
+  } catch {}
+  const elapsed = Date.now() - startedAt;
+  if (elapsed < 360) await waitMs(360 - elapsed);
+  state.accountLoading = false;
+  if (state.screen === 'account') render();
 }
 
 function setRole(r) {
@@ -2138,14 +2994,18 @@ function setRole(r) {
   state.role = r;
   if (r === 'customer') {
     go('market');
-    loadMarket(1);
+    loadMarket(1, { anticipate: true });
   } else {
-    go('dashboard');
+    openDashboardWithAnticipation();
   }
 }
 
 /* ---------- Events ---------- */
 document.addEventListener('click', async (e) => {
+  const waAnchor = e.target.closest('a[data-wa-worker]');
+  if (waAnchor && waAnchor.dataset.waWorker) {
+    WORKERS.track(waAnchor.dataset.waWorker, 'wa_click');
+  }
   if (e.target.closest('a')) return;
   const el = e.target.closest('[data-action]'); if (!el) return;
   const d = el.dataset;
@@ -2199,7 +3059,7 @@ document.addEventListener('click', async (e) => {
     }
     case 'auth-forgot': state.showPw = false; state.auth.mode = 'forgot'; state.auth.error = ''; state.auth.info = ''; render(); break;
     case 'auth-login': state.showPw = false; state.auth.mode = 'login'; state.auth.error = ''; state.auth.info = ''; render(); break;
-    case 'account': state.showAcctPw = false; go('account'); break;
+    case 'account': openAccountWithAnticipation(); break;
     case 'edit-worker': setRole('worker'); break;
     case 'signout':
       AUTH.signOut().catch(() => {}).finally(() => {
@@ -2255,15 +3115,34 @@ document.addEventListener('click', async (e) => {
       state.category = isMain ? cat : '';
       state.query = isMain ? '' : cat;
       state.location = (state.landingBrief.area || '').trim();
+      state.sessionBrief = { ...state.landingBrief, active: true };
       setRole('customer');
       break;
     }
+    case 'clear-session-brief':
+      state.sessionBrief = null;
+      if (state.screen === 'market') updateMarket();
+      else render();
+      break;
     case 'role': setRole(d.role); break;
     case 'category': {
       const next = d.name || '';
       state.category = !next ? '' : (state.category === next ? '' : next);
+      triggerSearchPulse();
       applyLocalFilter(1);
       loadMarket(1, { silent: true });
+      break;
+    }
+    case 'bookmark': {
+      e.stopPropagation();
+      const targetId = d.id || (state.selected && state.selected.id);
+      const found =
+        (state.selected && String(state.selected.id) === String(targetId) && state.selected) ||
+        state.workers.find((w) => String(w.id) === String(targetId)) ||
+        state.stats.topWorkers.find((w) => String(w.id) === String(targetId)) ||
+        state.savedWorkers.find((w) => String(w.id) === String(targetId)) ||
+        { id: targetId };
+      toggleBookmark(found);
       break;
     }
     case 'open': openWorkerById(d.id, true); break;
@@ -2271,11 +3150,46 @@ document.addEventListener('click', async (e) => {
       history.replaceState(null, '', location.pathname + location.search);
       setRole('customer');
       break;
-    case 'page': loadMarket(Number(d.page) || 1); break;
-    case 'retry-market': loadMarket(state.workersPage); break;
+    case 'page': loadMarket(Number(d.page) || 1, { anticipate: true }); break;
+    case 'retry-market': loadMarket(state.workersPage, { anticipate: true }); break;
     case 'bill-pay': billAct('pay'); break;
     case 'invite-create': createInvite(); break;
     case 'invite-copy': copyInvite(); break;
+    case 'copy-profile-link': {
+      const url = d.url || '';
+      if (url && navigator.clipboard) {
+        navigator.clipboard.writeText(url).then(() => toast('Profile link copied.'), () => toast('Copy failed — select link manually.'));
+      } else {
+        toast('Profile link ready to share.');
+      }
+      break;
+    }
+    case 'qr-open':
+      if (state.selected) { state.qrModal = state.selected; render(); }
+      break;
+    case 'qr-close':
+      state.qrModal = null; render();
+      break;
+    case 'qr-download': {
+      const target =
+        (state.myProfile && String(state.myProfile.id) === String(d.id) && state.myProfile) ||
+        (state.selected && String(state.selected.id) === String(d.id) && state.selected) ||
+        state.qrModal;
+      if (target) downloadQrPoster(target);
+      break;
+    }
+    case 'compare-open':
+      await refreshSavedWorkers();
+      state.compareOpen = true;
+      render();
+      break;
+    case 'compare-close':
+      state.compareOpen = false; render();
+      break;
+    case 'open-saved':
+      state.savedOnly = true;
+      setRole('customer');
+      break;
     case 'rv-blaze': state.review.blaze = !state.review.blaze; render(); break;
     case 'rv-star': state.review.rating = state.review.rating === +d.v ? 0 : +d.v; render(); break;
     case 'rv-home':
@@ -2284,20 +3198,24 @@ document.addEventListener('click', async (e) => {
       if (state.user) setRole('customer');
       else go('landing');
       break;
-    case 'city': state.location = state.location.toLowerCase() === d.name.toLowerCase() ? '' : d.name; applyLocalFilter(1); loadMarket(1, { silent: true }); break;
-    case 'verified': state.verifiedOnly = !state.verifiedOnly; applyLocalFilter(1); loadMarket(1, { silent: true }); break;
-    case 'rating': state.minRating = state.minRating ? 0 : 4.8; applyLocalFilter(1); loadMarket(1, { silent: true }); break;
-    case 'clear': state.category = ''; state.query = ''; state.location = ''; state.verifiedOnly = false; state.minRating = 0; applyLocalFilter(1); loadMarket(1, { silent: true }); break;
-    case 'clear-query': state.query = ''; applyLocalFilter(1); loadMarket(1, { silent: true }); { const el = $('[data-field="query"]'); if (el) { el.value = ''; el.focus(); } syncSearchClearButtons(); } break;
-    case 'clear-location': state.location = ''; applyLocalFilter(1); loadMarket(1, { silent: true }); { const el = $('[data-field="location"]'); if (el) { el.value = ''; el.focus(); } syncSearchClearButtons(); } break;
+    case 'city': state.location = state.location.toLowerCase() === d.name.toLowerCase() ? '' : d.name; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
+    case 'verified': state.verifiedOnly = !state.verifiedOnly; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
+    case 'available': state.availableOnly = !state.availableOnly; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
+    case 'saved-filter': state.savedOnly = !state.savedOnly; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
+    case 'rating': state.minRating = state.minRating ? 0 : 4.8; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
+    case 'clear': state.category = ''; state.query = ''; state.location = ''; state.verifiedOnly = false; state.availableOnly = false; state.savedOnly = false; state.minRating = 0; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
+    case 'clear-query': state.query = ''; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); { const el = $('[data-field="query"]'); if (el) { el.value = ''; el.focus(); } syncSearchClearButtons(); } break;
+    case 'clear-location': state.location = ''; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); { const el = $('[data-field="location"]'); if (el) { el.value = ''; el.focus(); } syncSearchClearButtons(); } break;
     case 'draft-type': state.draft.type = d.type; render(); break;
     case 'draft-cat': state.draft.category = d.name; render(); break;
+    case 'draft-avail': state.draft.availability = d.val || 'available'; render(); break;
     case 'publish': saveProfile(); break;
     case 'portfolio-del': {
       try {
         await WORKERS.removePortfolio(d.id);
         state.myProfile = await AUTH.getMyWorkerProfile();
         state.draft = { ...freshDraft(), ...state.myProfile };
+        state.analytics = await WORKERS.getAnalytics().catch(() => state.analytics);
         toast('Portfolio photo removed.');
         render();
       } catch (err) {
@@ -2305,7 +3223,17 @@ document.addEventListener('click', async (e) => {
       }
       break;
     }
-    case 'brief': state.brief = { kind: BRIEF_KINDS[0], when: BRIEF_WHEN[0], area: state.location || '', note: '' }; render(); break;
+    case 'brief': {
+      const sb = state.sessionBrief && state.sessionBrief.active ? state.sessionBrief : null;
+      state.brief = {
+        kind: (sb && sb.kind) || BRIEF_KINDS[0],
+        when: (sb && sb.when) || BRIEF_WHEN[0],
+        area: (sb && sb.area) || state.location || '',
+        note: '',
+      };
+      render();
+      break;
+    }
     case 'brief-close': state.brief = null; render(); break;
     case 'brief-kind': state.brief.kind = d.v; render(); break;
     case 'brief-when': state.brief.when = d.v; render(); break;
@@ -2341,6 +3269,8 @@ document.addEventListener('click', async (e) => {
           await AUTH.deleteMyWorkerProfile();
           state.myProfile = null;
           state.sub = null;
+          state.analytics = null;
+          state.verif = null;
           state.draft = { ...freshDraft(), name: state.user?.name || '', phone: state.user?.phone || '' };
           state.confirmModal = null;
           state.marketCache = null;
@@ -2353,6 +3283,8 @@ document.addEventListener('click', async (e) => {
           state.user = null;
           state.myProfile = null;
           state.sub = null;
+          state.analytics = null;
+          state.verif = null;
           state.draft = freshDraft();
           state.confirmModal = null;
           state.marketCache = null;
@@ -2403,6 +3335,8 @@ document.addEventListener('keydown', (e) => {
     if (state.brief) { state.brief = null; render(); return; }
     if (state.reportModal) { state.reportModal = null; render(); return; }
     if (state.confirmModal) { state.confirmModal = null; render(); return; }
+    if (state.compareOpen) { state.compareOpen = false; render(); return; }
+    if (state.qrModal) { state.qrModal = null; render(); return; }
   }
   const el = e.target.closest && e.target.closest('[data-action="open"]');
   if (el && e.key === 'Enter') el.click();
@@ -2412,13 +3346,14 @@ document.addEventListener('input', (e) => {
   const f = e.target.dataset && e.target.dataset.field; if (!f) return;
   const v = e.target.value;
   if (f === 'query' || f === 'location') { state[f] = v; syncSearchClearButtons(); scheduleMarketLoad(1); }
-  else if (f === 'sort') { state.sort = v; applyLocalFilter(1); loadMarket(1, { silent: true }); }
+  else if (f === 'sort') { state.sort = v; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); }
   else if (f === 'portfolioTitle') { state.portfolioTitle = v; }
   else if (f.startsWith('invite.')) state.invite[f.split('.')[1]] = v;
   else if (f.startsWith('rv.')) { state.review[f.split('.')[1]] = v; paintReview(); }
   else if (f.startsWith('brief.')) { state.brief[f.split('.')[1]] = v; updateBrief(); }
   else if (f.startsWith('landingBrief.')) { state.landingBrief[f.split('.')[1]] = v; updateLandingBriefPreview(); }
   else if (f.startsWith('landing.')) state.landing[f.split('.')[1]] = v;
+  else if (f.startsWith('verifForm.')) state.verifForm[f.split('.')[1]] = v;
   else if (f.startsWith('draft.')) {
     state.draft[f.split('.')[1]] = v;
     if ($('#preview')) $('#preview').innerHTML = workerCard(draftWorker(), true);
@@ -2428,9 +3363,21 @@ document.addEventListener('input', (e) => {
 });
 
 document.addEventListener('change', async (e) => {
+  const f = e.target.dataset && e.target.dataset.field;
+  if (f && f.startsWith('verifForm.')) {
+    state.verifForm[f.split('.')[1]] = e.target.value;
+  }
   const fileKind = e.target.dataset && e.target.dataset.file;
   const file = e.target.files && e.target.files[0];
   if (!fileKind || !file) return;
+
+  if (fileKind === 'verifDoc') {
+    state.verifForm.file = file;
+    state.verifForm.fileName = file.name || 'document';
+    state.verifForm.error = '';
+    render();
+    return;
+  }
 
   if (fileKind === 'photo') {
     if (!state.myProfile) {
@@ -2453,6 +3400,7 @@ document.addEventListener('change', async (e) => {
       const res = await WORKERS.uploadPhoto(file);
       state.draft.photo = res.url;
       state.myProfile.photo = res.url;
+      state.analytics = await WORKERS.getAnalytics().catch(() => state.analytics);
       toast('Profile photo updated.');
     } catch (err) {
       toast(err.message);
@@ -2467,6 +3415,7 @@ document.addEventListener('change', async (e) => {
       state.portfolioTitle = '';
       state.myProfile = await AUTH.getMyWorkerProfile();
       state.draft = { ...freshDraft(), ...state.myProfile };
+      state.analytics = await WORKERS.getAnalytics().catch(() => state.analytics);
       toast('Portfolio photo added.');
     } catch (err) {
       toast(err.message);
@@ -2483,6 +3432,29 @@ document.addEventListener('submit', async (e) => {
   if (kind === 'review') submitReview();
   if (kind === 'account') saveAccount(f);
   if (kind === 'password') changePassword(f);
+  if (kind === 'verify-request') {
+    const vf = state.verifForm;
+    vf.docType = f.docType || vf.docType;
+    vf.docRef = (f.docRef || '').trim();
+    vf.error = '';
+    vf.busy = true;
+    render();
+    try {
+      const res = await WORKERS.submitVerification({
+        docType: vf.docType,
+        docRef: vf.docRef,
+        notes: vf.notes || '',
+        file: vf.file,
+      });
+      state.verif = res.latest || null;
+      state.verifForm = { docType: 'Ghana Card', docRef: '', notes: '', file: null, fileName: '', error: '', busy: false };
+      toast('Verification request submitted!');
+    } catch (err) {
+      vf.busy = false;
+      vf.error = err.message || 'Could not submit verification request.';
+    }
+    render();
+  }
   if (kind === 'report' && state.reportModal && state.selected) {
     state.reportModal.error = '';
     state.reportModal.reason = f.reason || '';
@@ -2512,7 +3484,7 @@ AUTH.restoreSession().then(async (u) => {
     if (state.screen === 'landing') {
       state.role = 'customer';
       go('market');
-      loadMarket(1);
+      loadMarket(1, { anticipate: true });
     } else {
       render();
     }

@@ -5,12 +5,14 @@ const multer = require('multer');
 const {
   getPlanConfig,
   validateWorkerInput,
+  validateVerificationRequest,
+  computeProfileStrength,
   normalizePhoneDigits,
   cleanPlainText,
   isWorkerVisible,
   DAY_MS,
 } = require('../rules');
-const { generateToken } = require('../security');
+const { generateToken, createRateLimiter } = require('../security');
 const { inspectAndStripImage, resolveSafeUploadPath, MAX_IMAGE_BYTES } = require('../images');
 const { buildWorkerDTO, listVisibleWorkers, getMarketplaceStats } = require('../db');
 const { requireUser } = require('../middleware');
@@ -35,9 +37,17 @@ function handleMulter(middleware) {
   };
 }
 
-function createWorkersRouter(db, uploadsDir) {
+function createWorkersRouter(db, uploadsDir, verificationsDir) {
   const publicRouter = express.Router();
   const meWorkerRouter = express.Router();
+  const meBookmarksRouter = express.Router();
+
+  const trackLimiter = createRateLimiter({
+    windowMs: 10 * 60 * 1000,
+    max: 90,
+    keyFn: (req) => `trk:${req.ip}`,
+    message: 'Too many analytics requests.',
+  });
 
   publicRouter.get('/config', (req, res) => {
     const plan = getPlanConfig();
@@ -53,15 +63,19 @@ function createWorkersRouter(db, uploadsDir) {
   });
 
   publicRouter.get('/workers', (req, res) => {
+    const rawIds = String(req.query.ids || '').trim();
+    const ids = rawIds ? rawIds.split(',').map((s) => s.trim()).filter(Boolean).slice(0, 50) : null;
     const result = listVisibleWorkers(db, {
       q: req.query.q || '',
       category: req.query.category || '',
       area: req.query.area || '',
       verifiedOnly: req.query.verifiedOnly === '1' || req.query.verifiedOnly === 'true',
+      availableOnly: req.query.availableOnly === '1' || req.query.availableOnly === 'true',
       minRating: Number(req.query.minRating || 0),
+      ids,
       sort: req.query.sort || 'rating',
       page: Number(req.query.page || 1),
-      pageSize: 12,
+      pageSize: ids ? 50 : 12,
     });
     res.json(result);
   });
@@ -79,6 +93,30 @@ function createWorkersRouter(db, uploadsDir) {
       return res.status(404).json({ error: 'This profile is not available right now.' });
     }
     res.json(buildWorkerDTO(db, row));
+  });
+
+  publicRouter.post('/workers/:id/track', trackLimiter, (req, res) => {
+    const id = String(req.params.id || '').trim();
+    const eventType = req.body?.type === 'wa_click' ? 'wa_click' : req.body?.type === 'view' ? 'view' : null;
+    if (!eventType) return res.status(400).json({ error: 'Invalid event type.' });
+
+    const row = db.prepare(`
+      SELECT w.id, w.status, s.trial_ends_at, s.paid_until
+      FROM workers w
+      LEFT JOIN subscriptions s ON s.worker_id = w.id
+      WHERE w.id = ?
+    `).get(id);
+    if (!row || !isWorkerVisible(row, row, new Date())) {
+      return res.status(404).json({ error: 'Profile not found.' });
+    }
+
+    const evtId = 'evt_' + generateToken(10);
+    db.prepare(`
+      INSERT INTO worker_events (id, worker_id, event_type, created_at)
+      VALUES (?, ?, ?, ?)
+    `).run(evtId, row.id, eventType, new Date().toISOString());
+
+    res.status(201).json({ ok: true });
   });
 
   publicRouter.post('/reports', (req, res) => {
@@ -118,9 +156,22 @@ function createWorkersRouter(db, uploadsDir) {
     if (existing) {
       db.prepare(`
         UPDATE workers
-        SET type = ?, name = ?, category = ?, area = ?, phone = ?, years = ?, bio = ?, updated_at = ?
+        SET type = ?, name = ?, category = ?, area = ?, phone = ?, years = ?, bio = ?, availability = ?, rate_note = ?, updated_at = ?
         WHERE id = ? AND user_id = ?
-      `).run(data.type, data.name, data.category, data.area, data.phone, data.years, data.bio, nowIso, existing.id, req.user.id);
+      `).run(
+        data.type,
+        data.name,
+        data.category,
+        data.area,
+        data.phone,
+        data.years,
+        data.bio,
+        data.availability,
+        data.rateNote,
+        nowIso,
+        existing.id,
+        req.user.id
+      );
 
       const updated = db.prepare('SELECT * FROM workers WHERE id = ?').get(existing.id);
       return res.json(buildWorkerDTO(db, updated));
@@ -144,9 +195,25 @@ function createWorkersRouter(db, uploadsDir) {
     db.exec('BEGIN IMMEDIATE');
     try {
       db.prepare(`
-        INSERT INTO workers (id, user_id, type, name, category, area, phone, years, bio, photo_url, photo_path, verified, status, tint, published_at, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 0, 'active', ?, ?, ?, ?)
-      `).run(workerId, req.user.id, data.type, data.name, data.category, data.area, data.phone, data.years, data.bio, tint, nowIso, nowIso, nowIso);
+        INSERT INTO workers (id, user_id, type, name, category, area, phone, years, bio, availability, rate_note, photo_url, photo_path, verified, status, tint, published_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, 0, 'active', ?, ?, ?, ?)
+      `).run(
+        workerId,
+        req.user.id,
+        data.type,
+        data.name,
+        data.category,
+        data.area,
+        data.phone,
+        data.years,
+        data.bio,
+        data.availability,
+        data.rateNote,
+        tint,
+        nowIso,
+        nowIso,
+        nowIso
+      );
 
       db.prepare(`
         INSERT INTO subscriptions (worker_id, trial_ends_at, paid_until, updated_at)
@@ -180,6 +247,7 @@ function createWorkersRouter(db, uploadsDir) {
     if (!existing) return res.json({ ok: true });
 
     const portfolioRows = db.prepare('SELECT storage_path FROM portfolio_items WHERE worker_id = ?').all(existing.id);
+    const verifRows = db.prepare('SELECT doc_path FROM verification_requests WHERE worker_id = ?').all(existing.id);
     db.prepare('DELETE FROM workers WHERE id = ? AND user_id = ?').run(existing.id, req.user.id);
 
     const filesToDelete = [existing.photo_path, ...portfolioRows.map((r) => r.storage_path)].filter(Boolean);
@@ -188,6 +256,16 @@ function createWorkersRouter(db, uploadsDir) {
         const target = resolveSafeUploadPath(uploadsDir, rel);
         fs.rmSync(target, { force: true });
       } catch {}
+    }
+
+    if (verificationsDir) {
+      for (const vr of verifRows) {
+        if (!vr.doc_path) continue;
+        try {
+          const target = resolveSafeUploadPath(verificationsDir, vr.doc_path);
+          fs.rmSync(target, { force: true });
+        } catch {}
+      }
     }
 
     res.json({ ok: true });
@@ -289,7 +367,168 @@ function createWorkersRouter(db, uploadsDir) {
     res.json({ ok: true });
   });
 
-  return { publicRouter, meWorkerRouter };
+  meWorkerRouter.get('/analytics', requireUser, (req, res) => {
+    const worker = db.prepare('SELECT * FROM workers WHERE user_id = ?').get(req.user.id);
+    if (!worker) {
+      return res.json({
+        totalViews: 0,
+        totalWaClicks: 0,
+        views7d: 0,
+        waClicks7d: 0,
+        inviteCount: 0,
+        usedInviteCount: 0,
+        strength: computeProfileStrength(null, { portfolioCount: 0, inviteCount: 0 }),
+      });
+    }
+
+    const since7d = new Date(Date.now() - 7 * DAY_MS).toISOString();
+    const evtAgg = db.prepare(`
+      SELECT
+        COALESCE(SUM(CASE WHEN event_type = 'view' THEN 1 ELSE 0 END), 0) AS total_views,
+        COALESCE(SUM(CASE WHEN event_type = 'wa_click' THEN 1 ELSE 0 END), 0) AS total_wa_clicks,
+        COALESCE(SUM(CASE WHEN event_type = 'view' AND created_at >= ? THEN 1 ELSE 0 END), 0) AS views_7d,
+        COALESCE(SUM(CASE WHEN event_type = 'wa_click' AND created_at >= ? THEN 1 ELSE 0 END), 0) AS wa_clicks_7d
+      FROM worker_events
+      WHERE worker_id = ?
+    `).get(since7d, since7d, worker.id);
+
+    const invAgg = db.prepare(`
+      SELECT
+        COUNT(*) AS invite_count,
+        COALESCE(SUM(CASE WHEN used_at IS NOT NULL THEN 1 ELSE 0 END), 0) AS used_invite_count
+      FROM feedback_invites
+      WHERE worker_id = ?
+    `).get(worker.id);
+
+    const portfolioCount = db.prepare('SELECT COUNT(*) AS cnt FROM portfolio_items WHERE worker_id = ?').get(worker.id).cnt;
+
+    res.json({
+      totalViews: Number(evtAgg.total_views || 0),
+      totalWaClicks: Number(evtAgg.total_wa_clicks || 0),
+      views7d: Number(evtAgg.views_7d || 0),
+      waClicks7d: Number(evtAgg.wa_clicks_7d || 0),
+      inviteCount: Number(invAgg.invite_count || 0),
+      usedInviteCount: Number(invAgg.used_invite_count || 0),
+      strength: computeProfileStrength(worker, {
+        portfolioCount: Number(portfolioCount || 0),
+        inviteCount: Number(invAgg.invite_count || 0),
+      }),
+    });
+  });
+
+  function formatVerificationDTO(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      docType: row.doc_type,
+      docRef: row.doc_ref,
+      hasDocument: Boolean(row.doc_path),
+      notes: row.notes,
+      status: row.status,
+      adminNote: row.admin_note || '',
+      createdAt: row.created_at,
+      reviewedAt: row.reviewed_at || null,
+    };
+  }
+
+  meWorkerRouter.get('/verify-request', requireUser, (req, res) => {
+    const worker = db.prepare('SELECT id, verified FROM workers WHERE user_id = ?').get(req.user.id);
+    if (!worker) return res.json({ latest: null });
+    const row = db.prepare(`
+      SELECT * FROM verification_requests
+      WHERE worker_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `).get(worker.id);
+    res.json({ latest: formatVerificationDTO(row) });
+  });
+
+  meWorkerRouter.post('/verify-request', requireUser, handleMulter(upload.single('document')), (req, res) => {
+    const worker = db.prepare('SELECT id, verified FROM workers WHERE user_id = ?').get(req.user.id);
+    if (!worker) {
+      return res.status(400).json({ error: 'Publish your worker profile first before requesting verification.' });
+    }
+    if (worker.verified) {
+      return res.status(409).json({ error: 'Your profile is already ID verified.' });
+    }
+
+    const pending = db.prepare("SELECT id FROM verification_requests WHERE worker_id = ? AND status = 'pending'").get(worker.id);
+    if (pending) {
+      return res.status(409).json({ error: 'You already have a verification request awaiting review.' });
+    }
+
+    const parsed = validateVerificationRequest(req.body);
+    if (parsed.error) return res.status(400).json({ error: parsed.error });
+    const { docType, docRef, notes } = parsed.data;
+
+    let docRelPath = null;
+    if (req.file) {
+      if (!verificationsDir) {
+        return res.status(500).json({ error: 'Verification document storage is not configured.' });
+      }
+      const checked = inspectAndStripImage(req.file.buffer);
+      if (checked.error) return res.status(400).json({ error: checked.error });
+      const filename = `id_${generateToken(10)}.${checked.ext}`;
+      docRelPath = path.join(req.user.id, filename);
+      const fullPath = resolveSafeUploadPath(verificationsDir, req.user.id, filename);
+      fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+      fs.writeFileSync(fullPath, checked.buffer);
+    } else if (!docRef) {
+      return res.status(400).json({ error: 'Please enter your document reference number or upload an ID photo.' });
+    }
+
+    const id = 'vr_' + generateToken(10);
+    const nowIso = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO verification_requests (id, worker_id, doc_type, doc_ref, doc_path, notes, status, admin_note, created_at, reviewed_at)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', '', ?, NULL)
+    `).run(id, worker.id, docType, docRef, docRelPath, notes, nowIso);
+
+    const created = db.prepare('SELECT * FROM verification_requests WHERE id = ?').get(id);
+    res.status(201).json({ latest: formatVerificationDTO(created) });
+  });
+
+  function listUserBookmarkIds(userId) {
+    return db.prepare('SELECT worker_id FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC').all(userId).map((r) => r.worker_id);
+  }
+
+  meBookmarksRouter.get('/', requireUser, (req, res) => {
+    const ids = listUserBookmarkIds(req.user.id);
+    const items = ids.length ? listVisibleWorkers(db, { ids, page: 1, pageSize: 50 }).items : [];
+    res.json({ ids, items });
+  });
+
+  meBookmarksRouter.post('/', requireUser, (req, res) => {
+    const incoming = [];
+    if (typeof req.body?.workerId === 'string') incoming.push(req.body.workerId.trim());
+    if (Array.isArray(req.body?.workerIds)) {
+      for (const v of req.body.workerIds.slice(0, 50)) {
+        if (typeof v === 'string' && v.trim()) incoming.push(v.trim());
+      }
+    }
+    const nowIso = new Date().toISOString();
+    for (const workerId of incoming) {
+      const exists = db.prepare('SELECT id FROM workers WHERE id = ?').get(workerId);
+      if (exists) {
+        db.prepare('INSERT OR IGNORE INTO bookmarks (user_id, worker_id, created_at) VALUES (?, ?, ?)').run(
+          req.user.id,
+          workerId,
+          nowIso
+        );
+      }
+    }
+    const ids = listUserBookmarkIds(req.user.id);
+    res.json({ ids });
+  });
+
+  meBookmarksRouter.delete('/:workerId', requireUser, (req, res) => {
+    const workerId = String(req.params.workerId || '').trim();
+    db.prepare('DELETE FROM bookmarks WHERE user_id = ? AND worker_id = ?').run(req.user.id, workerId);
+    const ids = listUserBookmarkIds(req.user.id);
+    res.json({ ok: true, ids });
+  });
+
+  return { publicRouter, meWorkerRouter, meBookmarksRouter };
 }
 
 module.exports = { createWorkersRouter };

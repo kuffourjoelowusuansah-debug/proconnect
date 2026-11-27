@@ -127,7 +127,7 @@ test('Full HTTP API acceptance flows (auth, worker, repeat-trial block, custom c
   let cookieJar = '';
   const apiFetch = async (urlPath, opts: any = {}) => {
     const headers: Record<string, string> = {
-      'X-Requested-With': 'ProConnect',
+      'X-Requested-With': 'Nkabom',
       ...(opts.headers || {}),
     };
     if (cookieJar) headers.Cookie = cookieJar;
@@ -270,7 +270,7 @@ test('Full HTTP API acceptance flows (auth, worker, repeat-trial block, custom c
     // Guest submits feedback
     const guestSubmit = await fetch(`${baseUrl}/api/invites/${token}/feedback`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ProConnect' },
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'Nkabom' },
       body: JSON.stringify({ blaze: true, rating: 5, testimonial: 'Awesome design work!', name: 'Abena' }),
     });
     assert.equal(guestSubmit.status, 201);
@@ -278,7 +278,7 @@ test('Full HTTP API acceptance flows (auth, worker, repeat-trial block, custom c
     // Second use rejected
     const secondUse = await fetch(`${baseUrl}/api/invites/${token}/feedback`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'ProConnect' },
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'Nkabom' },
       body: JSON.stringify({ blaze: true, rating: 5, testimonial: 'Again', name: 'Abena' }),
     });
     assert.equal(secondUse.status, 410);

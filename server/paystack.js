@@ -135,8 +135,8 @@ function processVerifiedPayment(db, { reference, amountPesewas, currency, channe
       type: `receipt_${reference}`,
       channel: 'email',
       recipient: worker.email,
-      subject: 'ProConnect payment receipt',
-      message: `Hi ${worker.name}, we received your payment of GH₵${Math.round(amountPesewas / 100)}. Your ProConnect profile is live until ${dateLabel}.`,
+      subject: 'Nkabom payment receipt',
+      message: `Hi ${worker.name}, we received your payment of GH₵${Math.round(amountPesewas / 100)}. Your Nkabom profile is live until ${dateLabel}.`,
     }).catch(() => {});
 
     return {

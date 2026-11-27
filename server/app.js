@@ -10,13 +10,15 @@ const { createBillingRouter } = require('./routes/billing');
 const { createReviewsRouter } = require('./routes/reviews');
 const { createAdminRouter } = require('./routes/admin');
 
-function createApp({ db, uploadsDir, staticDir }) {
+function createApp({ db, uploadsDir, verificationsDir, staticDir }) {
   const app = express();
   app.set('trust proxy', true);
 
   const rootStatic = staticDir || path.resolve(__dirname, '..');
   const safeUploadsDir = uploadsDir || path.resolve(__dirname, '..', 'uploads');
+  const safeVerificationsDir = verificationsDir || path.resolve(__dirname, '..', 'data', 'verifications');
   fs.mkdirSync(safeUploadsDir, { recursive: true });
+  fs.mkdirSync(safeVerificationsDir, { recursive: true });
 
   const { meBillingRouter, paystackWebhookHandler } = createBillingRouter(db);
 
@@ -28,16 +30,17 @@ function createApp({ db, uploadsDir, staticDir }) {
   app.use(csrfCheck);
   app.use(attachSession(db));
 
-  const { authRouter, meRouter } = createAuthRouter(db, safeUploadsDir);
-  const { publicRouter, meWorkerRouter } = createWorkersRouter(db, safeUploadsDir);
+  const { authRouter, meRouter } = createAuthRouter(db, safeUploadsDir, safeVerificationsDir);
+  const { publicRouter, meWorkerRouter, meBookmarksRouter } = createWorkersRouter(db, safeUploadsDir, safeVerificationsDir);
   const { meInvitesRouter, publicInvitesRouter } = createReviewsRouter(db);
-  const adminRouter = createAdminRouter(db, safeUploadsDir);
+  const adminRouter = createAdminRouter(db, safeUploadsDir, safeVerificationsDir);
 
   app.use('/api/auth', authRouter);
-  app.use('/api/me', meRouter);
+  app.use('/api/me/bookmarks', meBookmarksRouter);
   app.use('/api/me/worker', meWorkerRouter);
   app.use('/api/me/billing', meBillingRouter);
   app.use('/api/me/invites', meInvitesRouter);
+  app.use('/api/me', meRouter);
   app.use('/api/invites', publicInvitesRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api', publicRouter);
@@ -69,7 +72,7 @@ function createApp({ db, uploadsDir, staticDir }) {
   app.use(express.static(rootStatic, { index: 'index.html' }));
 
   app.use((err, req, res, next) => {
-    console.error('[ProConnect API Error]', err && err.message ? err.message : err);
+    console.error('[Nkabom API Error]', err && err.message ? err.message : err);
     if (res.headersSent) return next(err);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   });

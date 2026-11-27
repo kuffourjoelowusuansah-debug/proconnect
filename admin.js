@@ -11,7 +11,7 @@ function toast(msg) {
 }
 
 async function api(path, opts = {}) {
-  const headers = { 'X-Requested-With': 'ProConnect', ...(opts.headers || {}) };
+  const headers = { 'X-Requested-With': 'Nkabom', ...(opts.headers || {}) };
   let body = opts.body;
   if (body && typeof body !== 'string') {
     headers['Content-Type'] = 'application/json';
@@ -43,6 +43,8 @@ const state = {
   workerFilter: 'all',
   overview: null,
   workers: [],
+  verifications: [],
+  docModal: null,
   feedback: [],
   reports: [],
   payments: [],
@@ -84,9 +86,10 @@ async function init() {
 }
 
 async function loadAllData() {
-  const [overview, workers, feedback, reports, payments, audit] = await Promise.all([
+  const [overview, workers, verifications, feedback, reports, payments, audit] = await Promise.all([
     api('/overview'),
     api('/workers?q=' + encodeURIComponent(state.workerQuery)),
+    api('/verifications'),
     api('/feedback'),
     api('/reports'),
     api('/payments'),
@@ -94,6 +97,7 @@ async function loadAllData() {
   ]);
   state.overview = overview;
   state.workers = workers.items || [];
+  state.verifications = verifications.items || [];
   state.feedback = feedback.items || [];
   state.reports = reports.items || [];
   state.payments = payments.items || [];
@@ -122,7 +126,7 @@ function authView() {
   return `
   <section class="max-w-md mx-auto px-5 py-12 pop">
     <div class="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8">
-      <h1 class="text-2xl font-extrabold">ProConnect Admin</h1>
+      <h1 class="text-2xl font-extrabold">Nkabom Admin</h1>
       <p class="mt-1 text-sm text-slate-500">Sign in to verify professionals, review reports, and manage subscriptions.</p>
       <form data-form="login" class="mt-6 grid gap-4">
         <label class="grid gap-1 text-sm font-semibold">Admin password<input name="passcode" type="password" required class="${input}" autocomplete="current-password"></label>
@@ -159,7 +163,7 @@ function workersTab() {
         <select data-field="workerFilter" class="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-brand">
           ${[['all', 'All statuses'], ['active', 'Paid active'], ['trial', 'In trial'], ['expired', 'Expired'], ['hidden', 'Hidden'], ['suspended', 'Suspended']].map(([v, l]) => `<option value="${v}" ${state.workerFilter === v ? 'selected' : ''}>${l}</option>`).join('')}
         </select>
-        <input data-field="workerQuery" value="${esc(state.workerQuery)}" placeholder="Search name, category, area, phone…" class="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand w-full sm:w-72">
+        <input id="admin-worker-search" data-field="workerQuery" value="${esc(state.workerQuery)}" placeholder="Search name, category, area, phone…" class="rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand w-full sm:w-72">
       </div>
     </div>
     <div class="mt-4 overflow-x-auto">
@@ -315,18 +319,71 @@ function auditTab() {
   </div>`;
 }
 
+function verificationsTab() {
+  return `
+  <div class="bg-white rounded-3xl border border-slate-200 p-5">
+    <h2 class="text-lg font-bold">ID &amp; Trade Verifications (${state.verifications.length})</h2>
+    <p class="text-xs text-slate-500 mt-1">Submitted documents are stored privately outside public uploads and served only to signed-in admins.</p>
+    <div class="mt-4 grid gap-3">
+      ${state.verifications.map((v) => {
+        const tone = v.status === 'pending' ? 'amber' : v.status === 'approved' ? 'green' : 'red';
+        return `<div class="rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="grid gap-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="font-bold text-ink">${esc(v.workerName)}</span>
+              ${badge(v.status, tone)}
+              ${badge(v.docType)}
+              <span class="text-xs text-slate-500">${esc(v.category)} · ${esc(v.area)}</span>
+            </div>
+            <div class="text-sm text-slate-700">${v.docRef ? `Ref: <strong class="font-semibold">${esc(v.docRef)}</strong>` : '<span class="text-slate-400">No ref number entered</span>'}${v.notes ? ` · ${esc(v.notes)}` : ''}</div>
+            ${v.adminNote ? `<div class="text-xs text-slate-500">Admin note: ${esc(v.adminNote)}</div>` : ''}
+            <div class="text-xs text-slate-400">Submitted ${fmtDateTime(v.createdAt)}${v.reviewedAt ? ` · Reviewed ${fmtDateTime(v.reviewedAt)}` : ''}</div>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            ${v.hasDocument ? `<button data-action="verif-doc" data-id="${esc(v.id)}" data-name="${esc(v.workerName)}" class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold hover:bg-slate-50">View document</button>` : ''}
+            ${v.status !== 'approved' ? `<button data-action="verif-decide" data-id="${esc(v.id)}" data-val="approved" class="rounded-lg bg-wa px-3 py-1.5 text-xs font-bold">Approve &amp; verify</button>` : ''}
+            ${v.status !== 'rejected' ? `<button data-action="verif-decide" data-id="${esc(v.id)}" data-val="rejected" class="rounded-lg border border-red-200 text-red-700 px-3 py-1.5 text-xs font-semibold hover:bg-red-50">Reject</button>` : ''}
+          </div>
+        </div>`;
+      }).join('')}
+      ${state.verifications.length === 0 ? '<p class="py-6 text-center text-sm text-slate-500">No verification requests yet.</p>' : ''}
+    </div>
+  </div>`;
+}
+
+function docModalHTML() {
+  const dm = state.docModal;
+  if (!dm) return '';
+  return `
+  <div data-action="doc-close" class="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+    <div data-action="noop" class="bg-white rounded-3xl max-w-2xl w-full p-5 grid gap-4 pop">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-extrabold">${esc(dm.name)} — ID Document</h3>
+          <p class="text-xs text-slate-500">Private admin inspection (EXIF/GPS stripped on upload)</p>
+        </div>
+        <button data-action="doc-close" aria-label="Close" class="w-9 h-9 rounded-full bg-slate-100 text-lg font-bold">×</button>
+      </div>
+      <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 flex items-center justify-center max-h-[92vh] overflow-y-auto">
+        <img src="/api/admin/verifications/${encodeURIComponent(dm.id)}/document" alt="Submitted ID document" class="max-w-full rounded-xl" />
+      </div>
+    </div>
+  </div>`;
+}
+
 function dashboardView() {
   const o = state.overview || {};
   const cards = [
     ['Total pros', o.totalWorkers || 0],
     ['Active visible', o.activeWorkers || 0],
     ['In trial', o.trialWorkers || 0],
-    ['Expired', o.expiredWorkers || 0],
+    ['Pending IDs', o.pendingVerifications || 0],
     ['Month revenue', `GH₵${((o.paymentsThisMonthPesewas || 0) / 100).toFixed(0)}`],
     ['Open reports', o.openReports || 0],
   ];
   const tabs = [
     ['workers', 'Professionals'],
+    ['verifications', `Verifications (${o.pendingVerifications || 0})`],
     ['feedback', 'Feedback'],
     ['reports', `Reports (${o.openReports || 0})`],
     ['payments', 'Payments'],
@@ -352,6 +409,7 @@ function dashboardView() {
     </div>
 
     ${state.tab === 'workers' ? workersTab()
+      : state.tab === 'verifications' ? verificationsTab()
       : state.tab === 'feedback' ? feedbackTab()
       : state.tab === 'reports' ? reportsTab()
       : state.tab === 'payments' ? paymentsTab()
@@ -363,7 +421,7 @@ function render() {
   const hdr = `
   <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
     <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between gap-3">
-      <a href="/" class="flex items-center gap-2 font-extrabold text-lg text-brand"><img src="logo-icon.png" alt="" class="w-9 h-9 object-contain" onerror="this.style.display='none'">ProConnect Admin</a>
+      <a href="/" class="flex items-center gap-2 font-extrabold text-lg text-brand"><img src="logo-icon.png" alt="" class="w-9 h-9 object-contain" onerror="this.style.display='none'">Nkabom Admin</a>
       <div class="flex items-center gap-4">
         <a href="/" class="text-sm font-semibold text-slate-600 hover:text-brand">Back to site</a>
         ${state.authenticated ? '<button data-action="logout" class="text-sm font-semibold text-brand hover:underline">Sign out</button>' : ''}
@@ -375,7 +433,7 @@ function render() {
   if (!state.loading) {
     body = state.authenticated ? dashboardView() : authView();
   }
-  $('#admin-app').innerHTML = hdr + body;
+  $('#admin-app').innerHTML = hdr + body + docModalHTML();
 }
 
 document.addEventListener('submit', async (e) => {
@@ -453,6 +511,20 @@ document.addEventListener('click', async (e) => {
       await loadAllData();
       toast('Report updated.');
       render();
+    } else if (d.action === 'verif-doc') {
+      state.docModal = { id: d.id, name: d.name || 'Professional' };
+      render();
+    } else if (d.action === 'doc-close') {
+      state.docModal = null;
+      render();
+    } else if (d.action === 'noop') {
+      // keep modal open
+    } else if (d.action === 'verif-decide') {
+      const note = d.val === 'rejected' ? 'Please upload a clearer photo or double-check your document reference.' : 'ID verified by Nkabom admin.';
+      await api(`/verifications/${encodeURIComponent(d.id)}`, { method: 'PATCH', body: { status: d.val, adminNote: note } });
+      await loadAllData();
+      toast(d.val === 'approved' ? 'Verification approved!' : 'Verification rejected.');
+      render();
     } else if (d.action === 'run-reminders') {
       const res = await api('/reminders/run', { method: 'POST' });
       await loadAllData();
@@ -461,6 +533,13 @@ document.addEventListener('click', async (e) => {
     }
   } catch (err) {
     toast(err.message);
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.docModal) {
+    state.docModal = null;
+    render();
   }
 });
 
@@ -481,6 +560,12 @@ document.addEventListener('input', (e) => {
         const res = await api('/workers?q=' + encodeURIComponent(state.workerQuery));
         state.workers = res.items || [];
         render();
+        const inp = $('#admin-worker-search');
+        if (inp) {
+          inp.focus();
+          const len = inp.value.length;
+          inp.setSelectionRange(len, len);
+        }
       } catch {}
     }, 180);
   }

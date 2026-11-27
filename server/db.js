@@ -9,15 +9,26 @@ const {
 
 const DATA_DIR = path.resolve(__dirname, '..', 'data');
 const UPLOADS_DIR = path.resolve(__dirname, '..', 'uploads');
+const VERIFICATIONS_DIR = path.resolve(DATA_DIR, 'verifications');
 
 function ensureDirs() {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  fs.mkdirSync(VERIFICATIONS_DIR, { recursive: true });
 }
 
-function openDatabase(dbPath = path.join(DATA_DIR, 'proconnect.db')) {
+function openDatabase(dbPath = path.join(DATA_DIR, 'nkabom.db')) {
   if (dbPath !== ':memory:') {
     ensureDirs();
+    const defaultPath = path.join(DATA_DIR, 'nkabom.db');
+    const legacyPath = path.join(DATA_DIR, 'proconnect.db');
+    if (dbPath === defaultPath && !fs.existsSync(defaultPath) && fs.existsSync(legacyPath)) {
+      for (const ext of ['', '-wal', '-shm']) {
+        if (fs.existsSync(legacyPath + ext)) {
+          fs.renameSync(legacyPath + ext, defaultPath + ext);
+        }
+      }
+    }
   }
   const db = new DatabaseSync(dbPath);
   db.exec('PRAGMA foreign_keys = ON;');
@@ -66,6 +77,8 @@ function migrate(db) {
       phone TEXT NOT NULL,
       years INTEGER NOT NULL,
       bio TEXT NOT NULL DEFAULT '',
+      availability TEXT NOT NULL DEFAULT 'available',
+      rate_note TEXT NOT NULL DEFAULT '',
       photo_url TEXT,
       photo_path TEXT,
       verified INTEGER NOT NULL DEFAULT 0,
@@ -175,16 +188,53 @@ function migrate(db) {
       value TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS bookmarks (
+      user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (user_id, worker_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS worker_events (
+      id TEXT PRIMARY KEY,
+      worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+      event_type TEXT NOT NULL CHECK (event_type IN ('view', 'wa_click')),
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS verification_requests (
+      id TEXT PRIMARY KEY,
+      worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+      doc_type TEXT NOT NULL,
+      doc_ref TEXT NOT NULL DEFAULT '',
+      doc_path TEXT,
+      notes TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+      admin_note TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL,
+      reviewed_at TEXT
+    );
+
     CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(status);
     CREATE INDEX IF NOT EXISTS idx_feedback_worker_status ON feedback(worker_id, status);
     CREATE INDEX IF NOT EXISTS idx_invites_worker ON feedback_invites(worker_id);
     CREATE INDEX IF NOT EXISTS idx_payments_worker ON payments(worker_id);
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
+    CREATE INDEX IF NOT EXISTS idx_worker_events_lookup ON worker_events(worker_id, event_type, created_at);
+    CREATE INDEX IF NOT EXISTS idx_verifications_status ON verification_requests(status, created_at);
   `);
 
   const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
   if (!userCols.includes('trial_claimed_at')) {
     db.exec('ALTER TABLE users ADD COLUMN trial_claimed_at TEXT;');
+  }
+
+  const workerCols = db.prepare('PRAGMA table_info(workers)').all().map((c) => c.name);
+  if (!workerCols.includes('availability')) {
+    db.exec("ALTER TABLE workers ADD COLUMN availability TEXT NOT NULL DEFAULT 'available';");
+  }
+  if (!workerCols.includes('rate_note')) {
+    db.exec("ALTER TABLE workers ADD COLUMN rate_note TEXT NOT NULL DEFAULT '';");
   }
 
   // Ensure previously seeded fake demo profiles are removed while preserving real accounts
@@ -243,6 +293,8 @@ function buildWorkerDTO(db, workerRow) {
     phone: workerRow.phone,
     years: Number(workerRow.years),
     bio: workerRow.bio || '',
+    availability: workerRow.availability || 'available',
+    rateNote: workerRow.rate_note || '',
     photo: workerRow.photo_url || null,
     verified: Boolean(workerRow.verified),
     tint: Number(workerRow.tint || 0),
@@ -254,7 +306,7 @@ function buildWorkerDTO(db, workerRow) {
   };
 }
 
-function listVisibleWorkers(db, { q = '', category = '', area = '', verifiedOnly = false, minRating = 0, sort = 'rating', page = 1, pageSize = 12 } = {}) {
+function listVisibleWorkers(db, { q = '', category = '', area = '', verifiedOnly = false, availableOnly = false, minRating = 0, ids = null, sort = 'rating', page = 1, pageSize = 12 } = {}) {
   const now = new Date();
   const rows = db.prepare(`
     SELECT w.*, s.trial_ends_at, s.paid_until
@@ -270,25 +322,34 @@ function listVisibleWorkers(db, { q = '', category = '', area = '', verifiedOnly
   for (const row of rows) {
     if (!isWorkerVisible(row, row, now)) continue;
     if (row.category) allCategories.add(row.category);
-    const city = String(row.area || '').split(' – ')[0].split('-')[0].trim();
-    if (city) allCities.add(city);
+    const parts = String(row.area || '').split(/[,/]+/);
+    for (const part of parts) {
+      const city = part.split(' – ')[0].split('-')[0].trim();
+      if (city) allCities.add(city);
+    }
     visible.push(buildWorkerDTO(db, row));
   }
 
   const qTerms = String(q || '').trim().toLowerCase().split(/\s+/).filter(Boolean);
   const catExact = String(category || '').trim();
-  const areaLower = String(area || '').trim().toLowerCase();
+  const areaTerms = String(area || '').trim().toLowerCase().split(/[,\s]+/).filter(Boolean);
   const minR = Number(minRating) || 0;
+  const idSet = Array.isArray(ids) && ids.length ? new Set(ids.map((v) => String(v))) : null;
 
   const filtered = visible.filter((w) => {
+    if (idSet && !idSet.has(String(w.id))) return false;
     if (catExact && w.category !== catExact) return false;
     if (verifiedOnly && !w.verified) return false;
+    if (availableOnly && w.availability !== 'available') return false;
     if (minR > 0 && !(w.reviews > 0 && w.rating >= minR)) return false;
     if (qTerms.length) {
-      const hay = `${w.name} ${w.category} ${w.bio} ${w.area} ${w.type}`.toLowerCase();
+      const hay = `${w.name} ${w.category} ${w.bio} ${w.area} ${w.type} ${w.rateNote || ''}`.toLowerCase();
       if (!qTerms.every((term) => hay.includes(term))) return false;
     }
-    if (areaLower && !w.area.toLowerCase().includes(areaLower)) return false;
+    if (areaTerms.length) {
+      const areaHay = String(w.area || '').toLowerCase();
+      if (!areaTerms.every((term) => areaHay.includes(term))) return false;
+    }
     return true;
   });
 
@@ -345,6 +406,7 @@ function logAdminAudit(db, { action, targetType, targetId, details = {} }) {
 module.exports = {
   DATA_DIR,
   UPLOADS_DIR,
+  VERIFICATIONS_DIR,
   openDatabase,
   buildWorkerDTO,
   listVisibleWorkers,

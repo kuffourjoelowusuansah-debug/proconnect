@@ -19,6 +19,7 @@ const {
   createRateLimiter,
 } = require('../security');
 const { ADMIN_COOKIE, ADMIN_TTL_SECONDS, requireAdmin } = require('../middleware');
+const { resolveSafeUploadPath } = require('../images');
 const { logAdminAudit } = require('../db');
 const { runDailyRemindersJob } = require('../notifications');
 
@@ -29,7 +30,7 @@ function safeEqualStrings(a, b) {
   return crypto.timingSafeEqual(bufA, bufB);
 }
 
-function createAdminRouter(db, uploadsDir) {
+function createAdminRouter(db, uploadsDir, verificationsDir) {
   const router = express.Router();
 
   const adminLimiter = createRateLimiter({
@@ -184,6 +185,7 @@ function createAdminRouter(db, uploadsDir) {
     `).get(monthStart);
 
     const openReports = db.prepare("SELECT COUNT(*) AS cnt FROM reports WHERE status = 'open'").get().cnt;
+    const pendingVerifications = db.prepare("SELECT COUNT(*) AS cnt FROM verification_requests WHERE status = 'pending'").get().cnt;
 
     res.json({
       totalWorkers: workers.length,
@@ -195,6 +197,7 @@ function createAdminRouter(db, uploadsDir) {
       paymentsThisMonthCount: Number(payStats.cnt || 0),
       paymentsThisMonthPesewas: Number(payStats.total_pesewas || 0),
       openReports: Number(openReports || 0),
+      pendingVerifications: Number(pendingVerifications || 0),
     });
   });
 
@@ -272,16 +275,24 @@ function createAdminRouter(db, uploadsDir) {
     if (!worker) return res.status(404).json({ error: 'Worker not found.' });
 
     const portfolioRows = db.prepare('SELECT storage_path FROM portfolio_items WHERE worker_id = ?').all(id);
+    const verifRows = db.prepare('SELECT doc_path FROM verification_requests WHERE worker_id = ?').all(id);
     db.prepare('DELETE FROM workers WHERE id = ?').run(id);
     logAdminAudit(db, { action: 'worker.delete', targetType: 'worker', targetId: id, details: { name: worker.name } });
 
     if (uploadsDir) {
       for (const rel of [worker.photo_path, ...portfolioRows.map((p) => p.storage_path)].filter(Boolean)) {
         try {
-          const target = path.resolve(uploadsDir, rel);
-          if (target.startsWith(path.resolve(uploadsDir) + path.sep)) {
-            fs.rmSync(target, { force: true });
-          }
+          const target = resolveSafeUploadPath(uploadsDir, rel);
+          fs.rmSync(target, { force: true });
+        } catch {}
+      }
+    }
+    if (verificationsDir) {
+      for (const vr of verifRows) {
+        if (!vr.doc_path) continue;
+        try {
+          const target = resolveSafeUploadPath(verificationsDir, vr.doc_path);
+          fs.rmSync(target, { force: true });
         } catch {}
       }
     }
@@ -406,8 +417,90 @@ function createAdminRouter(db, uploadsDir) {
     }
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="proconnect-payments.csv"');
+    res.setHeader('Content-Disposition', 'attachment; filename="nkabom-payments.csv"');
     res.send(lines.join('\r\n'));
+  });
+
+  router.get('/verifications', guard, (req, res) => {
+    const rows = db.prepare(`
+      SELECT vr.id, vr.worker_id, vr.doc_type, vr.doc_ref, vr.doc_path, vr.notes, vr.status, vr.admin_note, vr.created_at, vr.reviewed_at,
+        w.name AS worker_name, w.category, w.area, w.phone, w.verified AS worker_verified
+      FROM verification_requests vr
+      JOIN workers w ON w.id = vr.worker_id
+      ORDER BY CASE WHEN vr.status = 'pending' THEN 0 ELSE 1 END, vr.created_at DESC
+      LIMIT 200
+    `).all();
+    res.json({
+      items: rows.map((r) => ({
+        id: r.id,
+        workerId: r.worker_id,
+        workerName: r.worker_name,
+        category: r.category,
+        area: r.area,
+        phone: r.phone,
+        workerVerified: Boolean(r.worker_verified),
+        docType: r.doc_type,
+        docRef: r.doc_ref,
+        hasDocument: Boolean(r.doc_path),
+        notes: r.notes,
+        status: r.status,
+        adminNote: r.admin_note || '',
+        createdAt: r.created_at,
+        reviewedAt: r.reviewed_at || null,
+      })),
+    });
+  });
+
+  router.get('/verifications/:id/document', guard, (req, res) => {
+    const row = db.prepare('SELECT id, doc_path FROM verification_requests WHERE id = ?').get(req.params.id);
+    if (!row || !row.doc_path || !verificationsDir) {
+      return res.status(404).end();
+    }
+    try {
+      const target = resolveSafeUploadPath(verificationsDir, row.doc_path);
+      if (!fs.existsSync(target)) return res.status(404).end();
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'no-store');
+      res.sendFile(target);
+    } catch {
+      res.status(400).end();
+    }
+  });
+
+  router.patch('/verifications/:id', guard, (req, res) => {
+    const status = req.body?.status;
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Verification status must be approved or rejected.' });
+    }
+    const adminNote = cleanPlainText(req.body?.adminNote, 240);
+    const row = db.prepare('SELECT id, worker_id, status FROM verification_requests WHERE id = ?').get(req.params.id);
+    if (!row) return res.status(404).json({ error: 'Verification request not found.' });
+
+    const nowIso = new Date().toISOString();
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.prepare('UPDATE verification_requests SET status = ?, admin_note = ?, reviewed_at = ? WHERE id = ?').run(
+        status,
+        adminNote,
+        nowIso,
+        row.id
+      );
+      if (status === 'approved') {
+        db.prepare('UPDATE workers SET verified = 1, updated_at = ? WHERE id = ?').run(nowIso, row.worker_id);
+      }
+      logAdminAudit(db, {
+        action: `verification.${status}`,
+        targetType: 'verification',
+        targetId: row.id,
+        details: { workerId: row.worker_id, adminNote },
+      });
+      db.exec('COMMIT');
+    } catch (err) {
+      try { db.exec('ROLLBACK'); } catch {}
+      throw err;
+    }
+
+    res.json({ ok: true });
   });
 
   router.get('/audit', guard, (req, res) => {

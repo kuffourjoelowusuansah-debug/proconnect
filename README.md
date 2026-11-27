@@ -1,4 +1,4 @@
-# ProConnect
+# Nkabom
 
 Unified full-stack repository containing both the frontend (`index.html`, `app.js`, `styles.css`, `admin.html`, `admin.js`) and the Node.js/Express backend (`server.js`, `server/`).
 

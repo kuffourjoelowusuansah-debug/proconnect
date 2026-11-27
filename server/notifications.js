@@ -3,7 +3,7 @@ const { DAY_MS, getPlanConfig } = require('./rules');
 
 async function sendEmailViaResend({ to, subject, text }) {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.EMAIL_FROM || 'ProConnect <no-reply@proconnect.local>';
+  const from = process.env.EMAIL_FROM || 'Nkabom <no-reply@nkabom.local>';
   if (!apiKey || !to) return false;
 
   const resp = await fetch('https://api.resend.com/emails', {
@@ -19,7 +19,7 @@ async function sendEmailViaResend({ to, subject, text }) {
 
 async function sendSmsViaArkesel({ to, message }) {
   const apiKey = process.env.ARKESEL_API_KEY;
-  const sender = process.env.SMS_SENDER_ID || 'ProConnect';
+  const sender = process.env.SMS_SENDER_ID || 'Nkabom';
   if (!apiKey || !to) return false;
 
   const resp = await fetch('https://sms.arkesel.com/api/v2/sms/send', {
@@ -42,7 +42,7 @@ async function sendNotification(db, { workerId, type, channel, recipient, subjec
   if (already) return false;
 
   if (channel === 'email') {
-    await sendEmailViaResend({ to: recipient, subject: subject || 'ProConnect update', text: message }).catch(() => false);
+    await sendEmailViaResend({ to: recipient, subject: subject || 'Nkabom update', text: message }).catch(() => false);
   } else if (channel === 'sms') {
     await sendSmsViaArkesel({ to: recipient, message }).catch(() => false);
   }
@@ -101,16 +101,16 @@ async function runDailyRemindersJob(db, now = new Date()) {
 
     if (diffDays === 5) {
       milestone = `reminder_5d_${periodTag}`;
-      message = `Hi ${row.name}, your ProConnect profile stays live until ${dateLabel}. Pay GH₵${priceGhs} in your account to add another month.`;
+      message = `Hi ${row.name}, your Nkabom profile stays live until ${dateLabel}. Pay GH₵${priceGhs} in your account to add another month.`;
     } else if (diffDays === 2) {
       milestone = `reminder_2d_${periodTag}`;
-      message = `Hi ${row.name}, 2 days left on your ProConnect profile (ends ${dateLabel}). Pay GH₵${priceGhs} in your account to keep showing in search.`;
+      message = `Hi ${row.name}, 2 days left on your Nkabom profile (ends ${dateLabel}). Pay GH₵${priceGhs} in your account to keep showing in search.`;
     } else if (diffDays === 0) {
       milestone = `reminder_0d_${periodTag}`;
-      message = `Hi ${row.name}, your ProConnect period ends today (${dateLabel}). Pay GH₵${priceGhs} in your account to stay visible.`;
+      message = `Hi ${row.name}, your Nkabom period ends today (${dateLabel}). Pay GH₵${priceGhs} in your account to stay visible.`;
     } else if (diffDays === -1) {
       milestone = `expired_1d_${periodTag}`;
-      message = `Hi ${row.name}, your ProConnect profile is now hidden from search. Pay GH₵${priceGhs} in your account anytime to show it again.`;
+      message = `Hi ${row.name}, your Nkabom profile is now hidden from search. Pay GH₵${priceGhs} in your account anytime to show it again.`;
     }
 
     if (!milestone) continue;
@@ -121,7 +121,7 @@ async function runDailyRemindersJob(db, now = new Date()) {
         type: milestone,
         channel: 'email',
         recipient: row.email,
-        subject: 'ProConnect profile reminder',
+        subject: 'Nkabom profile reminder',
         message,
       });
       if (sent) sentCount += 1;

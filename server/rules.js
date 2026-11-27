@@ -75,6 +75,9 @@ function validateSignupInput(body) {
   return { data: { name, phone, email, password } };
 }
 
+const VALID_AVAILABILITIES = ['available', 'busy', 'appointment'];
+const VALID_DOC_TYPES = ['Ghana Card', 'Business Registration', 'Trade Certificate'];
+
 function validateWorkerInput(body) {
   const type = body?.type === 'Business' ? 'Business' : body?.type === 'Personal' ? 'Personal' : null;
   if (!type) return { error: 'Profile type must be Personal or Business.' };
@@ -100,8 +103,8 @@ function validateWorkerInput(body) {
     return { error: 'WhatsApp number must be between 9 and 20 characters.' };
   }
 
-  const yearsNum = Number(body?.years);
-  if (!Number.isInteger(yearsNum) || yearsNum < 0 || yearsNum > 70) {
+  const yearsRaw = body?.years === '' || body?.years === null || body?.years === undefined ? NaN : Number(body.years);
+  if (!Number.isInteger(yearsRaw) || yearsRaw < 0 || yearsRaw > 70) {
     return { error: 'Years of experience must be a whole number between 0 and 70.' };
   }
 
@@ -110,6 +113,10 @@ function validateWorkerInput(body) {
     return { error: 'Bio cannot exceed 600 characters.' };
   }
 
+  const rawAvail = cleanPlainText(body?.availability || 'available', 20).toLowerCase();
+  const availability = VALID_AVAILABILITIES.includes(rawAvail) ? rawAvail : 'available';
+  const rateNote = cleanPlainText(body?.rateNote, 60);
+
   return {
     data: {
       type,
@@ -117,10 +124,46 @@ function validateWorkerInput(body) {
       category,
       area,
       phone,
-      years: yearsNum,
+      years: yearsRaw,
       bio,
+      availability,
+      rateNote,
     },
   };
+}
+
+function validateVerificationRequest(body) {
+  const docType = cleanPlainText(body?.docType, 40);
+  if (!VALID_DOC_TYPES.includes(docType)) {
+    return { error: 'Document type must be Ghana Card, Business Registration, or Trade Certificate.' };
+  }
+  const docRef = cleanPlainText(body?.docRef, 40);
+  if (docRef && docRef.length < 3) {
+    return { error: 'Reference number must be at least 3 characters if provided.' };
+  }
+  const notes = cleanPlainText(body?.notes, 300);
+  return { data: { docType, docRef, notes } };
+}
+
+function computeProfileStrength(worker, stats = {}) {
+  const bioLen = String(worker?.bio || '').trim().length;
+  const portfolioCount = Number(stats.portfolioCount ?? worker?.portfolio?.length ?? 0);
+  const inviteCount = Number(stats.inviteCount ?? 0);
+  const hasPhoto = Boolean(worker?.photo || worker?.photo_url);
+  const hasRate = Boolean(String(worker?.rateNote ?? worker?.rate_note ?? '').trim());
+  const isVerifiedOrInvited = Boolean(worker?.verified) || inviteCount > 0;
+
+  const items = [
+    { key: 'photo', label: 'Add a profile photo', done: hasPhoto },
+    { key: 'bio', label: 'Write a detailed bio (30+ chars)', done: bioLen >= 30 },
+    { key: 'portfolio', label: 'Upload at least 3 work photos', done: portfolioCount >= 3 },
+    { key: 'rate', label: 'Add a starting fee or quote note', done: hasRate },
+    { key: 'trust', label: 'Request verification or send 1st review link', done: isVerifiedOrInvited },
+  ];
+  const completedCount = items.filter((i) => i.done).length;
+  const totalCount = items.length;
+  const score = Math.round((completedCount / totalCount) * 100);
+  return { score, completedCount, totalCount, items };
 }
 
 function validateFeedbackInput(body) {
@@ -168,6 +211,8 @@ function neutralizeCsvCell(value) {
 
 module.exports = {
   DAY_MS,
+  VALID_AVAILABILITIES,
+  VALID_DOC_TYPES,
   getPlanConfig,
   normalizePhoneDigits,
   computeSubscriptionStatus,
@@ -176,6 +221,8 @@ module.exports = {
   cleanPlainText,
   validateSignupInput,
   validateWorkerInput,
+  validateVerificationRequest,
+  computeProfileStrength,
   validateFeedbackInput,
   formatMonthYear,
   neutralizeCsvCell,

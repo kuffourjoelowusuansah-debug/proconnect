@@ -138,7 +138,8 @@ function csrfCheck(req, res, next) {
   if (req.path === '/api/webhooks/paystack') {
     return next();
   }
-  const hasCustomHeader = req.headers['x-requested-with'] === 'ProConnect';
+  const xrw = req.headers['x-requested-with'];
+  const hasCustomHeader = xrw === 'Nkabom' || xrw === 'ProConnect';
   const origin = req.headers.origin;
   const sameOrigin = origin ? isAllowedOrigin(origin, req) : false;
   if (!hasCustomHeader && !sameOrigin) {

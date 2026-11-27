@@ -16,7 +16,7 @@ const { sendNotification } = require('../notifications');
 
 const TERMS_VERSION = '22 November 2026';
 
-function createAuthRouter(db, uploadsDir) {
+function createAuthRouter(db, uploadsDir, verificationsDir) {
   const router = express.Router();
 
   const authLimiter = createRateLimiter({
@@ -121,8 +121,8 @@ function createAuthRouter(db, uploadsDir) {
         type: `password_reset_${tokenHash.slice(0, 10)}`,
         channel: 'email',
         recipient: user.email,
-        subject: 'Reset your ProConnect password',
-        message: `Hi ${user.name}, use this link within 1 hour to reset your ProConnect password: ${resetLink}`,
+        subject: 'Reset your Nkabom password',
+        message: `Hi ${user.name}, use this link within 1 hour to reset your Nkabom password: ${resetLink}`,
       }).catch(() => {});
     }
 
@@ -222,7 +222,7 @@ function createAuthRouter(db, uploadsDir) {
       'SELECT id, name, phone, email, terms_accepted_at, terms_version, trial_claimed_at, created_at, updated_at FROM users WHERE id = ?'
     ).get(req.user.id);
     const workerRow = db.prepare(
-      'SELECT id, type, name, category, area, phone, years, bio, photo_url, verified, status, published_at, created_at, updated_at FROM workers WHERE user_id = ?'
+      'SELECT id, type, name, category, area, phone, years, bio, availability, rate_note, photo_url, verified, status, published_at, created_at, updated_at FROM workers WHERE user_id = ?'
     ).get(req.user.id);
     const portfolio = workerRow
       ? db.prepare('SELECT id, image_url, title, created_at FROM portfolio_items WHERE worker_id = ? ORDER BY created_at DESC').all(workerRow.id)
@@ -235,8 +235,14 @@ function createAuthRouter(db, uploadsDir) {
         'SELECT id, amount_pesewas, currency, paystack_reference, channel, status, paid_at, period_start, period_end FROM payments WHERE worker_id = ? ORDER BY paid_at DESC'
       ).all(workerRow.id)
       : [];
+    const verificationRequests = workerRow
+      ? db.prepare(
+        'SELECT id, doc_type, doc_ref, notes, status, admin_note, created_at, reviewed_at FROM verification_requests WHERE worker_id = ? ORDER BY created_at DESC'
+      ).all(workerRow.id)
+      : [];
+    const bookmarks = db.prepare('SELECT worker_id, created_at FROM bookmarks WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
 
-    res.setHeader('Content-Disposition', 'attachment; filename="proconnect-my-data.json"');
+    res.setHeader('Content-Disposition', 'attachment; filename="nkabom-my-data.json"');
     res.json({
       exportedAt: new Date().toISOString(),
       account: userRow,
@@ -244,6 +250,8 @@ function createAuthRouter(db, uploadsDir) {
       portfolio,
       subscription,
       payments,
+      verificationRequests,
+      bookmarks,
     });
   });
 
@@ -263,6 +271,12 @@ function createAuthRouter(db, uploadsDir) {
       const userUploadDir = path.resolve(uploadsDir, userId);
       if (userUploadDir.startsWith(path.resolve(uploadsDir) + path.sep)) {
         fs.rmSync(userUploadDir, { recursive: true, force: true });
+      }
+    }
+    if (verificationsDir) {
+      const userVerifDir = path.resolve(verificationsDir, userId);
+      if (userVerifDir.startsWith(path.resolve(verificationsDir) + path.sep)) {
+        fs.rmSync(userVerifDir, { recursive: true, force: true });
       }
     }
 

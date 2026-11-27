@@ -1,4 +1,4 @@
-const { openDatabase, UPLOADS_DIR } = require('./server/db');
+const { openDatabase, UPLOADS_DIR, VERIFICATIONS_DIR } = require('./server/db');
 const { createApp } = require('./server/app');
 const { runDailyRemindersJob } = require('./server/notifications');
 
@@ -9,6 +9,7 @@ const db = openDatabase();
 const app = createApp({
   db,
   uploadsDir: UPLOADS_DIR,
+  verificationsDir: VERIFICATIONS_DIR,
   staticDir: __dirname,
 });
 
@@ -21,5 +22,5 @@ setInterval(() => {
 }, 24 * 60 * 60 * 1000).unref();
 
 app.listen(PORT, HOST, () => {
-  console.log(`ProConnect server listening on http://${HOST}:${PORT}`);
+  console.log(`Nkabom server listening on http://${HOST}:${PORT}`);
 });

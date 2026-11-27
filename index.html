@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>ProConnect Find App – Find trusted local experts</title>
+<title>Nkabom – Find trusted local experts</title>
 <meta name="description" content="Find trusted local professionals and chat with them on WhatsApp." />
-<meta name="theme-color" content="#1F3A5F" />
+<meta name="theme-color" content="#B45309" />
 
 <!-- Add to Home Screen: Android / Chrome -->
 <link rel="manifest" href="manifest.webmanifest" />
@@ -13,7 +13,7 @@
 <!-- Add to Home Screen: iPhone / iPad (Safari) -->
 <link rel="apple-touch-icon" href="apple-touch-icon.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-title" content="ProConnect" />
+<meta name="apple-mobile-web-app-title" content="Nkabom" />
 <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 <!-- Browser tab icon -->
 <link rel="icon" type="image/png" href="logo-icon.png" />
@@ -23,13 +23,13 @@
 <script>
 (() => {
   try {
-    const saved = localStorage.getItem('proconnect_theme');
+    const saved = localStorage.getItem('nkabom_theme') || localStorage.getItem('proconnect_theme');
     const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const isDark = saved ? saved === 'dark' : prefersDark;
     if (isDark) {
       document.documentElement.classList.add('dark');
       const m = document.querySelector('meta[name="theme-color"]');
-      if (m) m.setAttribute('content', '#0B1220');
+      if (m) m.setAttribute('content', '#100D0A');
     }
   } catch {}
 })();
@@ -40,6 +40,8 @@
 <div id="app"></div>
 <div id="toast" role="status" class="hidden pop fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-ink text-white text-sm font-semibold px-5 py-3 rounded-xl shadow-xl max-w-[90vw] text-center"></div>
 <script src="https://js.paystack.co/v2/inline.js" defer></script>
+<script src="loaders.js"></script>
+<script src="qr.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
