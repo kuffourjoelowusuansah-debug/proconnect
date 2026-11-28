@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "description": "Nkabom – Find trusted local experts",
-  "main": "api/index.js",
+  "main": "server.js",
   "scripts": {
-    "dev": "node server/server.js",
-    "start": "node server/server.js",
+    "dev": "node server.js",
+    "start": "node server.js",
     "build": "node -e \"console.log('Static site and backend ready')\"",
-    "lint": "node --check server/server.js && node --check api/index.js && node --check loaders.js && node --check qr.js && node --check client.js && node --check admin.js && node --check server/app.js && node --check server/db.js && node --check server/rules.js && node --check server/security.js && node --check server/images.js && node --check server/paystack.js && node --check server/notifications.js && node --check server/middleware.js && node --check server/store/index.js && node --check server/store/sqlite.js && node --check server/store/supabase.js && node --check server/routes/auth.js && node --check server/routes/workers.js && node --check server/routes/billing.js && node --check server/routes/reviews.js && node --check server/routes/admin.js"
+    "lint": "node --check server.js && node --check api/index.js && node --check loaders.js && node --check qr.js && node --check client.js && node --check admin.js && node --check server/app.js && node --check server/db.js && node --check server/rules.js && node --check server/security.js && node --check server/images.js && node --check server/paystack.js && node --check server/notifications.js && node --check server/middleware.js && node --check server/store/index.js && node --check server/store/sqlite.js && node --check server/store/supabase.js && node --check server/routes/auth.js && node --check server/routes/workers.js && node --check server/routes/billing.js && node --check server/routes/reviews.js && node --check server/routes/admin.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.119.2",
