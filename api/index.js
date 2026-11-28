@@ -1,3 +1,4 @@
+const express = require('express');
 const path = require('path');
 const { createStore } = require('../server/store');
 const { createApp } = require('../server/app');
