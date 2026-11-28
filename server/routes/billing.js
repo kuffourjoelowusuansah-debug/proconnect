@@ -1,7 +1,8 @@
 const express = require('express');
-const { getPlanConfig, computeSubscriptionStatus } = require('../rules');
+const { getPlanConfig } = require('../rules');
 const { generateToken, verifyPaystackSignature } = require('../security');
 const { requireUser } = require('../middleware');
+const { ensureStore, asyncHandler } = require('../store');
 const {
   isPaystackConfigured,
   initializePaystackTransaction,
@@ -9,37 +10,22 @@ const {
   processVerifiedPayment,
 } = require('../paystack');
 
-function createBillingRouter(db) {
+function createBillingRouter(dbOrStore) {
+  const store = ensureStore(dbOrStore);
   const meBillingRouter = express.Router();
 
-  meBillingRouter.get('/', requireUser, (req, res) => {
-    const worker = db.prepare('SELECT id FROM workers WHERE user_id = ?').get(req.user.id);
-    if (!worker) return res.json(null);
+  meBillingRouter.get('/', requireUser, asyncHandler(async (req, res) => {
+    res.json(await store.getMyBilling(req.user.id));
+  }));
 
-    const sub = db.prepare('SELECT * FROM subscriptions WHERE worker_id = ?').get(worker.id);
-    const statusObj = computeSubscriptionStatus(sub, new Date());
-    const payments = db.prepare(`
-      SELECT id, amount_pesewas, currency, paystack_reference, channel, status, paid_at, period_start, period_end
-      FROM payments
-      WHERE worker_id = ?
-      ORDER BY paid_at DESC
-      LIMIT 12
-    `).all(worker.id);
-
-    res.json({
-      ...statusObj,
-      payments,
-    });
-  });
-
-  meBillingRouter.post('/checkout', requireUser, async (req, res) => {
+  meBillingRouter.post('/checkout', requireUser, asyncHandler(async (req, res) => {
     if (!isPaystackConfigured()) {
       return res.status(503).json({
         error: 'Paystack payments are not configured yet. Please add PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY.',
       });
     }
 
-    const worker = db.prepare('SELECT id, name FROM workers WHERE user_id = ?').get(req.user.id);
+    const worker = await store.getWorkerForUser(req.user.id);
     if (!worker) {
       return res.status(400).json({ error: 'Create your worker profile first before paying for a subscription.' });
     }
@@ -72,14 +58,14 @@ function createBillingRouter(db) {
     } catch (err) {
       res.status(502).json({ error: err.message || 'Unable to start Paystack checkout.' });
     }
-  });
+  }));
 
-  meBillingRouter.get('/verify/:reference', requireUser, async (req, res) => {
+  meBillingRouter.get('/verify/:reference', requireUser, asyncHandler(async (req, res) => {
     if (!isPaystackConfigured()) {
       return res.status(503).json({ error: 'Paystack is not configured.' });
     }
 
-    const worker = db.prepare('SELECT id FROM workers WHERE user_id = ?').get(req.user.id);
+    const worker = await store.getWorkerForUser(req.user.id);
     if (!worker) {
       return res.status(400).json({ error: 'Worker profile not found.' });
     }
@@ -96,7 +82,7 @@ function createBillingRouter(db) {
         return res.status(403).json({ error: 'This payment does not belong to your account.' });
       }
 
-      const result = processVerifiedPayment(db, {
+      const result = await processVerifiedPayment(store, {
         reference: tx.reference,
         amountPesewas: tx.amount,
         currency: tx.currency,
@@ -110,7 +96,7 @@ function createBillingRouter(db) {
     } catch (err) {
       res.status(400).json({ error: err.message || 'Could not confirm payment yet.' });
     }
-  });
+  }));
 
   async function paystackWebhookHandler(req, res) {
     const secretKey = process.env.PAYSTACK_SECRET_KEY;
@@ -138,7 +124,7 @@ function createBillingRouter(db) {
       const tx = await verifyPaystackTransaction(event.data.reference);
       const workerId = tx.metadata?.worker_id;
       if (tx.status === 'success' && workerId) {
-        processVerifiedPayment(db, {
+        await processVerifiedPayment(store, {
           reference: tx.reference,
           amountPesewas: tx.amount,
           currency: tx.currency,

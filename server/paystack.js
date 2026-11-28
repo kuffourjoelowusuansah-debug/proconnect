@@ -1,9 +1,4 @@
-const crypto = require('crypto');
-const {
-  getPlanConfig,
-  computeExtendedPaidUntil,
-  computeSubscriptionStatus,
-} = require('./rules');
+const { ensureStore } = require('./store');
 const { sendNotification } = require('./notifications');
 
 function isPaystackConfigured(env = process.env) {
@@ -59,94 +54,34 @@ async function verifyPaystackTransaction(reference) {
   return payload.data;
 }
 
-function processVerifiedPayment(db, { reference, amountPesewas, currency, channel, paidAt, workerId, rawEvent }) {
-  const { pricePesewas, trialDays } = getPlanConfig();
-  const now = new Date();
-  const nowIso = now.toISOString();
+async function processVerifiedPayment(dbOrStore, { reference, amountPesewas, currency, channel, paidAt, workerId, rawEvent }) {
+  const store = ensureStore(dbOrStore);
+  const res = await store.processVerifiedPayment({
+    reference,
+    amountPesewas,
+    currency,
+    channel,
+    paidAt,
+    workerId,
+    rawEvent,
+  });
 
-  if (currency !== 'GHS' || Number(amountPesewas) < pricePesewas) {
-    throw new Error('Payment amount or currency did not match the subscription price.');
-  }
-
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    const existing = db.prepare('SELECT id FROM payments WHERE paystack_reference = ?').get(reference);
-    if (existing) {
-      const subRow = db.prepare('SELECT * FROM subscriptions WHERE worker_id = ?').get(workerId);
-      db.exec('COMMIT');
-      return {
-        alreadyProcessed: true,
-        subscription: computeSubscriptionStatus(subRow, now),
-      };
-    }
-
-    const worker = db.prepare(`
-      SELECT w.id, w.name, u.email, u.phone
-      FROM workers w
-      JOIN users u ON u.id = w.user_id
-      WHERE w.id = ?
-    `).get(workerId);
-    if (!worker) {
-      db.exec('ROLLBACK');
-      throw new Error('Worker profile not found for payment.');
-    }
-
-    const sub = db.prepare('SELECT * FROM subscriptions WHERE worker_id = ?').get(workerId);
-    const currentPaidUntil = sub ? sub.paid_until : nowIso;
-    const baseMs = Math.max(now.getTime(), new Date(currentPaidUntil).getTime() || 0);
-    const periodStart = new Date(baseMs).toISOString();
-    const periodEnd = computeExtendedPaidUntil(currentPaidUntil, now, trialDays);
-
-    if (sub) {
-      db.prepare('UPDATE subscriptions SET paid_until = ?, updated_at = ? WHERE worker_id = ?').run(periodEnd, nowIso, workerId);
-    } else {
-      db.prepare('INSERT INTO subscriptions (worker_id, trial_ends_at, paid_until, updated_at) VALUES (?, ?, ?, ?)').run(
-        workerId,
-        nowIso,
-        periodEnd,
-        nowIso
-      );
-    }
-
-    const payId = 'pay_' + crypto.randomBytes(8).toString('hex');
-    db.prepare(`
-      INSERT INTO payments (id, worker_id, amount_pesewas, currency, paystack_reference, channel, status, paid_at, period_start, period_end, raw_event, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'success', ?, ?, ?, ?, ?)
-    `).run(
-      payId,
-      workerId,
-      Number(amountPesewas),
-      currency,
-      reference,
-      String(channel || 'mobile_money'),
-      paidAt || nowIso,
-      periodStart,
-      periodEnd,
-      JSON.stringify(rawEvent || {}),
-      nowIso
-    );
-
-    const updatedSub = db.prepare('SELECT * FROM subscriptions WHERE worker_id = ?').get(workerId);
-    db.exec('COMMIT');
-
-    const dateLabel = new Date(periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
-    sendNotification(db, {
+  if (!res.alreadyProcessed && res.worker && res.periodEnd) {
+    const dateLabel = new Date(res.periodEnd).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    await sendNotification(store, {
       workerId,
       type: `receipt_${reference}`,
       channel: 'email',
-      recipient: worker.email,
+      recipient: res.worker.email,
       subject: 'Nkabom payment receipt',
-      message: `Hi ${worker.name}, we received your payment of GH₵${Math.round(amountPesewas / 100)}. Your Nkabom profile is live until ${dateLabel}.`,
+      message: `Hi ${res.worker.name}, we received your payment of GH₵${Math.round(amountPesewas / 100)}. Your Nkabom profile is live until ${dateLabel}.`,
     }).catch(() => {});
-
-    return {
-      alreadyProcessed: false,
-      subscription: computeSubscriptionStatus(updatedSub, now),
-    };
-  } catch (err) {
-    try { db.exec('ROLLBACK'); } catch {}
-    throw err;
   }
+
+  return {
+    alreadyProcessed: res.alreadyProcessed,
+    subscription: res.subscription,
+  };
 }
 
 module.exports = {

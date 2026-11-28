@@ -1,5 +1,5 @@
-const crypto = require('crypto');
 const { DAY_MS, getPlanConfig } = require('./rules');
+const { ensureStore } = require('./store');
 
 async function sendEmailViaResend({ to, subject, text }) {
   const apiKey = process.env.RESEND_API_KEY;
@@ -33,12 +33,9 @@ async function sendSmsViaArkesel({ to, message }) {
   return resp.ok;
 }
 
-async function sendNotification(db, { workerId, type, channel, recipient, subject, message }) {
-  const already = db.prepare('SELECT id FROM notification_logs WHERE worker_id = ? AND type = ? AND channel = ?').get(
-    workerId,
-    type,
-    channel
-  );
+async function sendNotification(dbOrStore, { workerId, type, channel, recipient, subject, message }) {
+  const store = ensureStore(dbOrStore);
+  const already = await store.hasNotificationLog({ workerId, type, channel });
   if (already) return false;
 
   if (channel === 'email') {
@@ -47,46 +44,34 @@ async function sendNotification(db, { workerId, type, channel, recipient, subjec
     await sendSmsViaArkesel({ to: recipient, message }).catch(() => false);
   }
 
-  const id = 'ntf_' + crypto.randomBytes(8).toString('hex');
-  db.prepare(`
-    INSERT INTO notification_logs (id, worker_id, type, channel, recipient, message, sent_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, workerId, type, channel, String(recipient || ''), message, new Date().toISOString());
+  await store.insertNotificationLog({
+    workerId,
+    type,
+    channel,
+    recipient,
+    message,
+    sentAt: new Date().toISOString(),
+  });
 
   return true;
 }
 
-function runRetentionCleanup(db, now = new Date()) {
+async function runRetentionCleanup(dbOrStore, now = new Date()) {
+  const store = ensureStore(dbOrStore);
   const { retentionDays } = getPlanConfig();
   const nowIso = now.toISOString();
   const resetCutoff = new Date(now.getTime() - 7 * DAY_MS).toISOString();
   const inviteCutoff = new Date(now.getTime() - retentionDays * DAY_MS).toISOString();
   const notifCutoff = new Date(now.getTime() - 180 * DAY_MS).toISOString();
 
-  const s1 = db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(nowIso).changes;
-  const s2 = db.prepare('DELETE FROM admin_sessions WHERE expires_at <= ?').run(nowIso).changes;
-  const s3 = db.prepare('DELETE FROM password_resets WHERE expires_at <= ? OR (used_at IS NOT NULL AND used_at <= ?)').run(nowIso, resetCutoff).changes;
-  const s4 = db.prepare('DELETE FROM feedback_invites WHERE used_at IS NULL AND expires_at <= ?').run(inviteCutoff).changes;
-  const s5 = db.prepare('DELETE FROM notification_logs WHERE sent_at <= ?').run(notifCutoff).changes;
-
-  return {
-    sessionsPurged: s1 + s2,
-    resetsPurged: s3,
-    expiredInvitesPurged: s4,
-    logsPurged: s5,
-  };
+  return store.purgeRetentionData({ nowIso, resetCutoff, inviteCutoff, notifCutoff });
 }
 
-async function runDailyRemindersJob(db, now = new Date()) {
+async function runDailyRemindersJob(dbOrStore, now = new Date()) {
+  const store = ensureStore(dbOrStore);
   const { priceGhs } = getPlanConfig();
   const nowMs = now.getTime();
-  const rows = db.prepare(`
-    SELECT w.id AS worker_id, w.name, w.phone, u.email, s.paid_until
-    FROM workers w
-    JOIN users u ON u.id = w.user_id
-    JOIN subscriptions s ON s.worker_id = w.id
-    WHERE w.status = 'active' AND u.password_hash != '!seeded_demo!'
-  `).all();
+  const rows = await store.listActiveWorkersForReminders();
 
   let sentCount = 0;
   for (const row of rows) {
@@ -116,7 +101,7 @@ async function runDailyRemindersJob(db, now = new Date()) {
     if (!milestone) continue;
 
     if (row.email) {
-      const sent = await sendNotification(db, {
+      const sent = await sendNotification(store, {
         workerId: row.worker_id,
         type: milestone,
         channel: 'email',
@@ -127,7 +112,7 @@ async function runDailyRemindersJob(db, now = new Date()) {
       if (sent) sentCount += 1;
     }
     if (row.phone) {
-      const sent = await sendNotification(db, {
+      const sent = await sendNotification(store, {
         workerId: row.worker_id,
         type: milestone,
         channel: 'sms',
@@ -138,7 +123,7 @@ async function runDailyRemindersJob(db, now = new Date()) {
     }
   }
 
-  const cleanup = runRetentionCleanup(db, now);
+  const cleanup = await runRetentionCleanup(store, now);
   return { checked: rows.length, sentCount, cleanup };
 }
 

@@ -115,6 +115,7 @@ function validateWorkerInput(body) {
 
   const rawAvail = cleanPlainText(body?.availability || 'available', 20).toLowerCase();
   const availability = VALID_AVAILABILITIES.includes(rawAvail) ? rawAvail : 'available';
+  const availabilityNote = cleanPlainText(body?.availabilityNote, 40);
   const rateNote = cleanPlainText(body?.rateNote, 60);
 
   return {
@@ -127,9 +128,148 @@ function validateWorkerInput(body) {
       years: yearsRaw,
       bio,
       availability,
+      availabilityNote,
       rateNote,
     },
   };
+}
+
+function validateAvailabilityPatch(body) {
+  const rawAvail = cleanPlainText(body?.availability, 20).toLowerCase();
+  if (!VALID_AVAILABILITIES.includes(rawAvail)) {
+    return { error: 'Availability must be available, busy, or appointment.' };
+  }
+  const availabilityNote = cleanPlainText(body?.availabilityNote, 40);
+  return {
+    data: {
+      availability: rawAvail,
+      availabilityNote,
+    },
+  };
+}
+
+function slugifyWorkerBase(name, area = '', fallbackId = '') {
+  const cleanName = String(name || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  const firstCity = String(area || '')
+    .split(/[,/–-]+/)[0]
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  let base = cleanName;
+  if (base && firstCity && !base.includes(firstCity) && base.length < 18) {
+    base = `${base}-${firstCity}`;
+  }
+  base = base.replace(/-+/g, '-').slice(0, 56).replace(/-+$/g, '');
+  if (base.length >= 2) return base;
+  const fb = String(fallbackId || 'pro').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  return fb || 'pro';
+}
+
+function formatRelativeFreshness(isoString, now = new Date()) {
+  if (!isoString) return '';
+  const ts = new Date(isoString).getTime();
+  if (!Number.isFinite(ts)) return '';
+  const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  const diffMs = Math.max(0, nowMs - ts);
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 60) return 'Active just now';
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return 'Active today';
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'Updated yesterday';
+  if (days < 7) return `Updated ${days}d ago`;
+  if (days <= 30) return 'Active this month';
+  return '';
+}
+
+function buildAnalyticsSummary(events = [], now = new Date()) {
+  const nowDate = now instanceof Date ? now : new Date(now);
+  const nowMs = nowDate.getTime();
+  const since7d = nowMs - 7 * DAY_MS;
+  const since30d = nowMs - 30 * DAY_MS;
+
+  const dayBuckets = new Map();
+  const dailySeries = [];
+  const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(nowMs - i * DAY_MS);
+    const key = d.toISOString().slice(0, 10);
+    const entry = {
+      date: key,
+      label: i === 0 ? 'Today' : weekdayNames[d.getUTCDay()],
+      views: 0,
+      waClicks: 0,
+    };
+    dayBuckets.set(key, entry);
+    dailySeries.push(entry);
+  }
+
+  let totalViews = 0;
+  let totalWaClicks = 0;
+  let views7d = 0;
+  let waClicks7d = 0;
+  let views30d = 0;
+  let waClicks30d = 0;
+
+  for (const e of events) {
+    if (!e || !e.created_at) continue;
+    const ts = new Date(e.created_at).getTime();
+    if (!Number.isFinite(ts)) continue;
+    const dayKey = String(e.created_at).slice(0, 10);
+    const bucket = dayBuckets.get(dayKey);
+
+    if (e.event_type === 'view') {
+      totalViews += 1;
+      if (ts >= since7d) views7d += 1;
+      if (ts >= since30d) views30d += 1;
+      if (bucket) bucket.views += 1;
+    } else if (e.event_type === 'wa_click') {
+      totalWaClicks += 1;
+      if (ts >= since7d) waClicks7d += 1;
+      if (ts >= since30d) waClicks30d += 1;
+      if (bucket) bucket.waClicks += 1;
+    }
+  }
+
+  const conversionRate = views30d > 0
+    ? Math.min(100, Math.round((waClicks30d / views30d) * 100))
+    : 0;
+
+  return {
+    totalViews,
+    totalWaClicks,
+    views7d,
+    waClicks7d,
+    views30d,
+    waClicks30d,
+    conversionRate,
+    dailySeries,
+  };
+}
+
+function isValidClientPassCode(raw) {
+  return /^USER\d{4,6}$/.test(String(raw || '').trim().toUpperCase());
+}
+
+function normalizeClientPassCode(raw) {
+  const up = String(raw || '').trim().toUpperCase();
+  return /^USER\d{4,6}$/.test(up) ? up : '';
+}
+
+function validateClientPassPin(pin) {
+  const s = String(pin ?? '').trim();
+  if (!/^\d{4,8}$/.test(s)) {
+    return { error: 'Sync PIN must be 4 to 8 digits.' };
+  }
+  return { data: s };
 }
 
 function validateVerificationRequest(body) {
@@ -221,6 +361,13 @@ module.exports = {
   cleanPlainText,
   validateSignupInput,
   validateWorkerInput,
+  validateAvailabilityPatch,
+  slugifyWorkerBase,
+  formatRelativeFreshness,
+  buildAnalyticsSummary,
+  isValidClientPassCode,
+  normalizeClientPassCode,
+  validateClientPassPin,
   validateVerificationRequest,
   computeProfileStrength,
   validateFeedbackInput,

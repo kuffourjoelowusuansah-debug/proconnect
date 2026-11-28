@@ -7,8 +7,41 @@ const loaders = require('../loaders.js');
 
 test('splash steps return a non-empty anticipation progression', () => {
   const steps = loaders.getSplashSteps();
-  assert.ok(Array.isArray(steps) && steps.length >= 2);
+  assert.ok(Array.isArray(steps) && steps.length >= 3);
   assert.ok(steps[0].toLowerCase().includes('nkabom'));
+});
+
+test('loader durations keep app-open longer than sign-in and directory transitions', () => {
+  const durations = loaders.getLoaderDurations();
+  assert.ok(durations.appOpenMs >= 2400);
+  assert.ok(durations.authTransitionMs >= 700 && durations.authTransitionMs < durations.appOpenMs);
+  assert.ok(durations.directoryTransitionMs >= 650 && durations.directoryTransitionMs < durations.appOpenMs);
+
+  const dirCopy = loaders.getTransitionLoaderCopy('directory', { query: 'Plumber', location: 'Accra' });
+  assert.equal(dirCopy.durationMs, durations.directoryTransitionMs);
+  assert.ok(dirCopy.steps[0].includes('Plumber'));
+
+  const signInCopy = loaders.getTransitionLoaderCopy('signin', { isWorker: true });
+  assert.equal(signInCopy.durationMs, durations.authTransitionMs);
+  assert.ok(signInCopy.steps.some((s: string) => s.includes('Pro Studio')));
+});
+
+test('Client Pass ID normalizes to USERxxxx and search history deduplicates', () => {
+  assert.equal(loaders.normalizeClientPassId('user1234'), 'USER1234');
+  assert.match(loaders.normalizeClientPassId(''), /^USER\d{4}$/);
+  assert.match(loaders.normalizeClientPassId('invalid'), /^USER\d{4}$/);
+
+  let history = loaders.addSearchHistoryEntry([], { query: 'Plumber', location: 'Accra' });
+  assert.equal(history.length, 1);
+  history = loaders.addSearchHistoryEntry(history, { category: 'Electrical', location: 'Kumasi' });
+  assert.equal(history.length, 2);
+  // Duplicate query+location moves to top instead of creating duplicates
+  history = loaders.addSearchHistoryEntry(history, { query: 'plumber', location: 'accra' });
+  assert.equal(history.length, 2);
+  assert.equal(history[0].query.toLowerCase(), 'plumber');
+  // Blank entry is ignored
+  const afterBlank = loaders.addSearchHistoryEntry(history, {});
+  assert.equal(afterBlank.length, 2);
 });
 
 test('directory loader distinguishes general directory vs active search query', () => {
@@ -41,11 +74,11 @@ test('search pulse summary builds concise single-line context', () => {
 
 test('dashboard, account, auth, profile, review, and save loaders provide progressive steps', () => {
   const dashExisting = loaders.getDashboardLoaderCopy(true);
-  assert.ok(dashExisting.headline.includes('dashboard'));
+  assert.ok(dashExisting.headline.includes('Pro Studio'));
   assert.ok(dashExisting.steps.length >= 2);
 
   const dashNew = loaders.getDashboardLoaderCopy(false);
-  assert.ok(dashNew.headline.includes('dashboard'));
+  assert.ok(dashNew.headline.includes('Pro Studio'));
 
   const acct = loaders.getAccountLoaderCopy();
   assert.ok(acct.headline.toLowerCase().includes('account'));

@@ -95,7 +95,7 @@ test('image magic bytes & EXIF stripping', () => {
   assert.throws(() => images.resolveSafeUploadPath('/tmp/uploads', '../etc/passwd'));
 });
 
-test('Paystack HMAC signature, CSV neutralization & retention cleanup', () => {
+test('Paystack HMAC signature, CSV neutralization & retention cleanup', async () => {
   const secret = 'sk_test_12345';
   const body = Buffer.from('{"event":"charge.success"}');
   const sig = crypto.createHmac('sha512', secret).update(body).digest('hex');
@@ -107,7 +107,7 @@ test('Paystack HMAC signature, CSV neutralization & retention cleanup', () => {
   try {
     db.prepare("INSERT INTO users (id, name, phone, email, password_hash, terms_accepted_at, terms_version, created_at, updated_at) VALUES ('u1','Test','0244111222','t@e.com','h','2026-01-01T00:00:00Z','v1','2026-01-01T00:00:00Z','2026-01-01T00:00:00Z')").run();
     db.prepare("INSERT INTO sessions (token_hash, user_id, expires_at, created_at) VALUES ('expired_tok','u1','2020-01-01T00:00:00Z','2020-01-01T00:00:00Z')").run();
-    const res = runRetentionCleanup(db, new Date('2026-11-25T00:00:00Z'));
+    const res = await runRetentionCleanup(db, new Date('2026-11-25T00:00:00Z'));
     assert.equal(res.sessionsPurged, 1);
   } finally {
     db.close();
@@ -290,7 +290,7 @@ test('Full HTTP API acceptance flows (auth, worker, repeat-trial block, custom c
     assert.equal(pubProfile.data.testimonials.length, 1);
 
     // 4. Idempotent payment processing extends subscription once
-    const p1 = processVerifiedPayment(db, {
+    const p1 = await processVerifiedPayment(db, {
       reference: 'ref_test_001',
       amountPesewas: 2000,
       currency: 'GHS',
@@ -302,7 +302,7 @@ test('Full HTTP API acceptance flows (auth, worker, repeat-trial block, custom c
     assert.equal(p1.alreadyProcessed, false);
     const firstEnd = p1.subscription.paidUntil;
 
-    const p2 = processVerifiedPayment(db, {
+    const p2 = await processVerifiedPayment(db, {
       reference: 'ref_test_001',
       amountPesewas: 2000,
       currency: 'GHS',
@@ -384,3 +384,62 @@ test('Full HTTP API acceptance flows (auth, worker, repeat-trial block, custom c
     fs.rmSync(tmpUploads, { recursive: true, force: true });
   }
 });
+
+test('Live availability patch, worker slugs, relative freshness, analytics summary, and Client Pass rules', () => {
+  const availValid = rules.validateAvailabilityPatch({
+    availability: 'busy',
+    availabilityNote: 'Booked til Friday morning',
+  });
+  assert.ok(availValid.data);
+  assert.equal(availValid.data.availability, 'busy');
+  assert.equal(availValid.data.availabilityNote, 'Booked til Friday morning');
+
+  const availTruncated = rules.validateAvailabilityPatch({
+    availability: 'available',
+    availabilityNote: 'X'.repeat(45),
+  });
+  assert.ok(availTruncated.data);
+  assert.equal(availTruncated.data.availabilityNote.length, 40);
+
+  const availInvalid = rules.validateAvailabilityPatch({
+    availability: 'on_mars',
+  });
+  assert.ok(availInvalid.error);
+
+  assert.equal(rules.slugifyWorkerBase('Kwame Mensah', 'Kumasi, Ahodwo'), 'kwame-mensah-kumasi');
+  assert.equal(rules.slugifyWorkerBase('Accra Master Plumbers Co.', 'Accra'), 'accra-master-plumbers-co');
+
+  const now = new Date('2026-11-28T12:00:00.000Z');
+  assert.equal(rules.formatRelativeFreshness('2026-11-28T11:45:00.000Z', now), 'Active just now');
+  assert.equal(rules.formatRelativeFreshness('2026-11-28T05:00:00.000Z', now), 'Active today');
+  assert.equal(rules.formatRelativeFreshness('2026-11-27T10:00:00.000Z', now), 'Updated yesterday');
+  assert.equal(rules.formatRelativeFreshness('2026-11-24T12:00:00.000Z', now), 'Updated 4d ago');
+  assert.equal(rules.formatRelativeFreshness('2026-10-01T12:00:00.000Z', now), '');
+
+  const analytics = rules.buildAnalyticsSummary([
+    { event_type: 'view', created_at: '2026-11-28T09:00:00.000Z' },
+    { event_type: 'view', created_at: '2026-11-28T10:00:00.000Z' },
+    { event_type: 'wa_click', created_at: '2026-11-28T10:05:00.000Z' },
+    { event_type: 'view', created_at: '2026-11-10T10:00:00.000Z' },
+    { event_type: 'view', created_at: '2026-08-01T10:00:00.000Z' },
+  ], now);
+  assert.equal(analytics.totalViews, 4);
+  assert.equal(analytics.totalWaClicks, 1);
+  assert.equal(analytics.views7d, 2);
+  assert.equal(analytics.waClicks7d, 1);
+  assert.equal(analytics.views30d, 3);
+  assert.equal(analytics.waClicks30d, 1);
+  assert.equal(analytics.conversionRate, 33);
+  assert.equal(analytics.dailySeries.length, 7);
+  assert.equal(analytics.dailySeries[6].label, 'Today');
+  assert.equal(analytics.dailySeries[6].views, 2);
+  assert.equal(analytics.dailySeries[6].waClicks, 1);
+
+  assert.equal(rules.isValidClientPassCode('user4821'), true);
+  assert.equal(rules.normalizeClientPassCode(' user4821 '), 'USER4821');
+  assert.equal(rules.normalizeClientPassCode('ADMIN99'), '');
+  assert.ok(rules.validateClientPassPin('4820').data);
+  assert.ok(rules.validateClientPassPin('12a').error);
+  assert.ok(rules.validateClientPassPin('123').error);
+});
+

@@ -1,47 +1,56 @@
-const { parseCookies, hashToken, clearSessionCookie } = require('./security');
+const { parseCookies, hashToken, setSessionCookie, clearSessionCookie } = require('./security');
+const { ensureStore, asyncHandler } = require('./store');
 
 const USER_COOKIE = 'pc_session';
+const USER_REFRESH_COOKIE = 'pc_refresh';
 const ADMIN_COOKIE = 'pc_admin';
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 const ADMIN_TTL_SECONDS = 12 * 60 * 60; // 12 hours
 
-function attachSession(db) {
-  return (req, res, next) => {
+function setAuthCookies(res, sessionToken, refreshToken) {
+  if (sessionToken) {
+    setSessionCookie(res, USER_COOKIE, sessionToken, SESSION_TTL_SECONDS);
+  }
+  if (refreshToken) {
+    setSessionCookie(res, USER_REFRESH_COOKIE, refreshToken, SESSION_TTL_SECONDS);
+  }
+}
+
+function clearAuthCookies(res) {
+  clearSessionCookie(res, USER_COOKIE);
+  clearSessionCookie(res, USER_REFRESH_COOKIE);
+}
+
+function attachSession(dbOrStore) {
+  const store = ensureStore(dbOrStore);
+  return asyncHandler(async (req, res, next) => {
     const cookies = parseCookies(req);
-    const raw = cookies[USER_COOKIE];
-    if (!raw) {
+    const raw = cookies[USER_COOKIE] || null;
+    const refresh = cookies[USER_REFRESH_COOKIE] || null;
+
+    if (!raw && !refresh) {
       req.user = null;
       return next();
     }
-    const tokenHash = hashToken(raw);
-    const row = db.prepare(`
-      SELECT u.id, u.name, u.phone, u.email, u.terms_accepted_at, u.terms_version, u.created_at, s.expires_at
-      FROM sessions s
-      JOIN users u ON u.id = s.user_id
-      WHERE s.token_hash = ?
-    `).get(tokenHash);
 
-    if (!row || new Date(row.expires_at).getTime() <= Date.now()) {
-      if (row) {
-        db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenHash);
+    const resolved = await store.resolveSession({ accessToken: raw, refreshToken: refresh });
+    if (!resolved || !resolved.user) {
+      if (resolved && resolved.expired) {
+        clearAuthCookies(res);
       }
-      clearSessionCookie(res, USER_COOKIE);
       req.user = null;
       return next();
     }
 
-    req.user = {
-      id: row.id,
-      name: row.name,
-      phone: row.phone,
-      email: row.email,
-      termsAcceptedAt: row.terms_accepted_at,
-      termsVersion: row.terms_version,
-      createdAt: row.created_at,
-    };
-    req.sessionTokenHash = tokenHash;
+    if (resolved.refreshedAccessToken) {
+      setAuthCookies(res, resolved.refreshedAccessToken, resolved.refreshedRefreshToken || refresh);
+    }
+
+    req.user = resolved.user;
+    req.sessionTokenHash = resolved.sessionTokenHash || null;
+    req.sessionAccessToken = resolved.refreshedAccessToken || raw || null;
     next();
-  };
+  });
 }
 
 function requireUser(req, res, next) {
@@ -51,32 +60,33 @@ function requireUser(req, res, next) {
   next();
 }
 
-function requireAdmin(db) {
-  return (req, res, next) => {
+function requireAdmin(dbOrStore) {
+  const store = ensureStore(dbOrStore);
+  return asyncHandler(async (req, res, next) => {
     const cookies = parseCookies(req);
     const raw = cookies[ADMIN_COOKIE];
     if (!raw) {
       return res.status(401).json({ error: 'Admin sign in required.' });
     }
     const tokenHash = hashToken(raw);
-    const row = db.prepare('SELECT token_hash, expires_at FROM admin_sessions WHERE token_hash = ?').get(tokenHash);
-    if (!row || new Date(row.expires_at).getTime() <= Date.now()) {
-      if (row) {
-        db.prepare('DELETE FROM admin_sessions WHERE token_hash = ?').run(tokenHash);
-      }
+    const valid = await store.isAdminSessionValid(tokenHash);
+    if (!valid) {
       clearSessionCookie(res, ADMIN_COOKIE);
       return res.status(401).json({ error: 'Admin session expired. Please sign in again.' });
     }
     req.adminTokenHash = tokenHash;
     next();
-  };
+  });
 }
 
 module.exports = {
   USER_COOKIE,
+  USER_REFRESH_COOKIE,
   ADMIN_COOKIE,
   SESSION_TTL_SECONDS,
   ADMIN_TTL_SECONDS,
+  setAuthCookies,
+  clearAuthCookies,
   attachSession,
   requireUser,
   requireAdmin,

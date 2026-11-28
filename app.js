@@ -1,12 +1,16 @@
 /* ===== Loader / splash screen (runs first so it shows right away) ===== */
 (() => {
-  if (!document.querySelector('link[rel~="icon"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="icon" href="logo-icon.png">');
+  if (!document.querySelector('link[rel~="icon"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="icon" href="/logo-icon.png">');
   const L = window.NKABOM_LOADERS;
+  const durations = L && L.getLoaderDurations ? L.getLoaderDurations() : { appOpenMs: 2600 };
+  const skipSplash = new URLSearchParams(location.search).get('autostart') === '1';
+  if (skipSplash) return;
+  const appOpenMs = Math.max(1200, Number(durations.appOpenMs) || 2600);
   const steps = L && L.getSplashSteps ? L.getSplashSteps() : ['Finding trusted pros near you'];
   const el = document.createElement('div');
   el.className = 'splash';
   el.setAttribute('aria-hidden', 'true');
-  el.innerHTML = `<div class="splash-inner"><img src="logo-white.png" alt="" class="splash-logo" onerror="this.style.display='none'"><div class="splash-name">Nkabom</div><div id="splash-tag" class="splash-tag pc-step-fade">${steps[0]}</div><div class="splash-bar"><span></span></div></div>`;
+  el.innerHTML = `<div class="splash-inner"><img src="/logo-white.png" alt="" class="splash-logo" onerror="this.style.display='none'"><div class="splash-name">Nkabom</div><div id="splash-tag" class="splash-tag pc-step-fade">${steps[0]}</div><div class="splash-bar splash-bar--determinate" style="--splash-ms:${appOpenMs}ms"><span></span></div></div>`;
   document.body.appendChild(el);
   let idx = 0;
   const tagEl = el.querySelector('#splash-tag');
@@ -17,12 +21,19 @@
     void tagEl.offsetWidth;
     tagEl.textContent = steps[idx];
     tagEl.classList.add('pc-step-fade');
-  }, 520);
-  const hide = () => { clearInterval(stepTimer); el.classList.add('hide'); setTimeout(() => el.remove(), 700); };
+  }, 620);
+  let hidden = false;
+  const hide = () => {
+    if (hidden) return;
+    hidden = true;
+    clearInterval(stepTimer);
+    el.classList.add('hide');
+    setTimeout(() => el.remove(), 600);
+  };
   const t0 = Date.now();
-  const done = () => setTimeout(hide, Math.max(0, 950 - (Date.now() - t0)));
+  const done = () => setTimeout(hide, Math.max(0, appOpenMs - (Date.now() - t0)));
   if (document.readyState === 'complete') done(); else window.addEventListener('load', done);
-  setTimeout(hide, 4000);
+  setTimeout(hide, appOpenMs + 1600);
 })();
 
 /* Lucide icons (inline SVG paths) */
@@ -69,7 +80,13 @@ const ICONS = {
  "mic": "<path d=\"M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z\" /> <path d=\"M19 10v2a7 7 0 0 1-14 0v-2\" /> <line x1=\"12\" x2=\"12\" y1=\"19\" y2=\"22\" />",
  "video": "<path d=\"m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5\" /> <rect x=\"2\" y=\"6\" width=\"14\" height=\"12\" rx=\"2\" />",
  "plus": "<path d=\"M5 12h14\" /> <path d=\"M12 5v14\" />",
- "tag": "<path d=\"M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z\" /> <path d=\"M7 7h.01\" />"
+ "tag": "<path d=\"M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z\" /> <path d=\"M7 7h.01\" />",
+ "home": "<path d=\"m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\" /> <polyline points=\"9 22 9 12 15 12 15 22\" />",
+ "history": "<path d=\"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8\" /> <path d=\"M3 3v5h5\" /> <path d=\"M12 7v5l4 2\" />",
+ "chevron-down": "<path d=\"m6 9 6 6 6-6\" />",
+ "repeat": "<path d=\"m17 2 4 4-4 4\" /> <path d=\"M3 11v-1a4 4 0 0 1 4-4h14\" /> <path d=\"m7 22-4-4 4-4\" /> <path d=\"M21 13v1a4 4 0 0 1-4 4H3\" />",
+ "refresh-cw": "<path d=\"M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8\" /> <path d=\"M21 3v5h-5\" /> <path d=\"M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16\" /> <path d=\"M8 16H3v5\" />",
+ "trash-2": "<path d=\"M3 6h18\" /> <path d=\"M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6\" /> <path d=\"M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2\" /> <line x1=\"10\" x2=\"10\" y1=\"11\" y2=\"17\" /> <line x1=\"14\" x2=\"14\" y1=\"11\" y2=\"17\" />"
 };
 
 /* ===== Nkabom: plain JavaScript app ===== */
@@ -101,7 +118,39 @@ const saveLocalSavedIds = (ids) => {
   try { localStorage.setItem('nkabom_saved', JSON.stringify(ids.slice(0, 50))); } catch {}
 };
 
-const freshDraft = () => ({ type: 'Personal', name: '', category: 'Plumbing', area: '', phone: '', years: 3, bio: '', availability: 'available', rateNote: '', photo: null, portfolio: [] });
+const loadClientId = () => {
+  const L = window.NKABOM_LOADERS;
+  let id = '';
+  try { id = localStorage.getItem('nkabom_client_id') || ''; } catch {}
+  const upper = String(id || '').trim().toUpperCase();
+  if (/^USER\d{4,6}$/.test(upper)) return upper;
+  const normalized = L && L.normalizeClientPassId ? L.normalizeClientPassId(id) : `USER${Math.floor(1000 + Math.random() * 9000)}`;
+  try { localStorage.setItem('nkabom_client_id', normalized); } catch {}
+  return normalized;
+};
+
+const loadSearchHistory = () => {
+  try {
+    const raw = JSON.parse(localStorage.getItem('nkabom_search_history') || '[]');
+    return Array.isArray(raw) ? raw.filter((it) => it && typeof it === 'object').slice(0, 15) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveSearchHistory = (list) => {
+  try { localStorage.setItem('nkabom_search_history', JSON.stringify((list || []).slice(0, 15))); } catch {}
+};
+
+const loadAccountMode = () => {
+  try { return localStorage.getItem('nkabom_account_mode') === 'pro' ? 'pro' : 'client'; } catch { return 'client'; }
+};
+
+const saveAccountMode = (mode) => {
+  try { localStorage.setItem('nkabom_account_mode', mode === 'pro' ? 'pro' : 'client'); } catch {}
+};
+
+const freshDraft = () => ({ type: 'Personal', name: '', category: 'Plumbing', area: '', phone: '', years: 3, bio: '', availability: 'available', availabilityNote: '', rateNote: '', photo: null, portfolio: [] });
 const state = {
   screen: 'landing',
   role: 'customer',
@@ -117,6 +166,7 @@ const state = {
   workersTotalPages: 1,
   workersLoading: false,
   workersError: '',
+  marketSyncedAt: null,
   dashboardLoading: false,
   accountLoading: false,
   searchPulse: false,
@@ -135,6 +185,13 @@ const state = {
   sessionBrief: null,
   theme: document.documentElement.classList.contains('dark') ? 'dark' : 'light',
   menuOpen: false,
+  desktopMenuOpen: false,
+  accountMode: loadAccountMode(),
+  clientId: loadClientId(),
+  clientHasPin: false,
+  clientPinForm: { pin: '', busy: false, error: '', info: '' },
+  clientRestoreForm: { code: '', pin: '', busy: false, error: '' },
+  searchHistory: loadSearchHistory(),
   showPw: false,
   showAcctPw: false,
   verifiedOnly: false,
@@ -148,6 +205,8 @@ const state = {
   qrModal: null,
   user: null,
   myProfile: null,
+  quickAvailNote: '',
+  quickAvailBusy: false,
   sub: null,
   analytics: null,
   verif: null,
@@ -165,17 +224,114 @@ const state = {
 };
 
 const LOADERS = window.NKABOM_LOADERS || {
+  getLoaderDurations: () => ({ appOpenMs: 2600, authTransitionMs: 900, directoryTransitionMs: 780 }),
+  getTransitionLoaderCopy: (kind) => ({ headline: kind === 'directory' ? 'Opening Directory' : 'Welcome back!', durationMs: kind === 'directory' ? 780 : 900, steps: ['Preparing your workspace…'] }),
+  normalizeClientPassId: (raw) => (/^USER\d{4}$/.test(String(raw || '').trim()) ? String(raw).trim() : 'USER1024'),
+  addSearchHistoryEntry: (list) => (Array.isArray(list) ? list : []),
   getDirectoryLoaderCopy: () => ({ isSearch: false, headline: 'Loading Nkabom directory', querySummary: '', steps: ['Gathering live professionals near you…'] }),
   getSearchPulseCopy: () => 'Searching directory…',
-  getDashboardLoaderCopy: () => ({ headline: 'Loading your worker dashboard', steps: ['Syncing your profile & 30-day trial…'] }),
-  getAccountLoaderCopy: () => ({ headline: 'Loading account & settings', steps: ['Syncing your account details…'] }),
+  getDashboardLoaderCopy: () => ({ headline: 'Loading your Pro Studio', steps: ['Syncing your profile & 30-day trial…'] }),
+  getAccountLoaderCopy: () => ({ headline: 'Loading your Account Hub', steps: ['Syncing Client Pass & Pro Studio modes…'] }),
   getAuthLoaderCopy: () => ({ headline: 'Signing you in', steps: ['Checking your account…'] }),
   getProfileLoaderCopy: () => ({ headline: 'Loading professional profile', steps: ['Fetching portfolio & reviews…'] }),
   getReviewLoaderCopy: () => ({ headline: 'Loading feedback invitation', steps: ['Checking your invite link…'] }),
   getProfileSaveLoaderCopy: () => ({ headline: 'Saving profile updates', steps: ['Updating directory…'] }),
 };
 
+function recordSearchHistory(entry = {}) {
+  const next = LOADERS.addSearchHistoryEntry(state.searchHistory, entry, 15);
+  state.searchHistory = next;
+  saveSearchHistory(next);
+  if (entry && (String(entry.query || '').trim() || String(entry.location || '').trim() || String(entry.category || '').trim())) {
+    CLIENT_PASS.addSearch({
+      query: String(entry.query || '').trim(),
+      location: String(entry.location || '').trim(),
+      category: String(entry.category || '').trim(),
+    }).then((res) => {
+      if (res && Array.isArray(res.searches)) {
+        state.searchHistory = res.searches;
+        saveSearchHistory(res.searches);
+        if (state.screen === 'account') render();
+      }
+    }).catch(() => {});
+  }
+}
+
+function removeSearchHistory(id) {
+  state.searchHistory = state.searchHistory.filter((it) => it.id !== id);
+  saveSearchHistory(state.searchHistory);
+  CLIENT_PASS.deleteSearch(id).then((res) => {
+    if (res && Array.isArray(res.searches)) {
+      state.searchHistory = res.searches;
+      saveSearchHistory(res.searches);
+      if (state.screen === 'account') render();
+    }
+  }).catch(() => {});
+}
+
+function clearSearchHistory() {
+  state.searchHistory = [];
+  saveSearchHistory([]);
+  CLIENT_PASS.clearSearches().catch(() => {});
+}
+
+function setAccountMode(mode) {
+  state.accountMode = mode === 'pro' ? 'pro' : 'client';
+  saveAccountMode(state.accountMode);
+}
+
 const waitMs = (ms) => new Promise((r) => setTimeout(r, ms));
+let activeTransitionSeq = 0;
+let activeTransitionTimer = null;
+function showTransitionLoader(kind = 'directory', opts = {}) {
+  const seq = ++activeTransitionSeq;
+  clearInterval(activeTransitionTimer);
+  const existing = document.getElementById('pc-transition-loader');
+  if (existing) existing.remove();
+
+  const copy = LOADERS.getTransitionLoaderCopy(kind, opts);
+  const steps = Array.isArray(copy.steps) && copy.steps.length ? copy.steps : ['Loading…'];
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const durationMs = reduced ? 320 : Math.max(550, Number(copy.durationMs) || 780);
+
+  const el = document.createElement('div');
+  el.id = 'pc-transition-loader';
+  el.className = 'splash splash--transition';
+  el.setAttribute('role', 'status');
+  el.setAttribute('aria-live', 'polite');
+  el.innerHTML = `<div class="splash-inner"><img src="/logo-white.png" alt="" class="splash-logo" onerror="this.style.display='none'"><div class="splash-name">${esc(copy.headline)}</div><div id="pc-trans-step" class="splash-tag pc-step-fade">${esc(steps[0])}</div><div class="splash-bar splash-bar--determinate" style="--splash-ms:${durationMs}ms"><span></span></div></div>`;
+  document.body.appendChild(el);
+
+  let stepIdx = 0;
+  const stepNode = el.querySelector('#pc-trans-step');
+  if (steps.length > 1) {
+    activeTransitionTimer = setInterval(() => {
+      if (seq !== activeTransitionSeq || !document.body.contains(el)) {
+        clearInterval(activeTransitionTimer);
+        return;
+      }
+      stepIdx = (stepIdx + 1) % steps.length;
+      if (stepNode) {
+        stepNode.classList.remove('pc-step-fade');
+        void stepNode.offsetWidth;
+        stepNode.textContent = steps[stepIdx];
+        stepNode.classList.add('pc-step-fade');
+      }
+    }, Math.max(260, Math.floor(durationMs / steps.length)));
+  }
+
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      clearInterval(activeTransitionTimer);
+      if (document.body.contains(el)) {
+        el.classList.add('hide');
+        setTimeout(() => { if (document.body.contains(el)) el.remove(); }, 340);
+      }
+      resolve();
+    }, durationMs);
+  });
+}
+
 let loaderTicker = null;
 function syncLoaderTicker() {
   clearInterval(loaderTicker);
@@ -424,6 +580,8 @@ const WORKERS = {
   },
   removePortfolio: (id) =>
     api(`/me/worker/portfolio/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  updateAvailability: ({ availability, availabilityNote }) =>
+    api('/me/worker/availability', { method: 'PATCH', body: { availability, availabilityNote } }),
   report: ({ workerId, reason, contact }) =>
     api('/reports', { method: 'POST', body: { workerId, reason, contact } }),
 };
@@ -435,7 +593,55 @@ const BOOKMARKS = {
   remove: (workerId) => api(`/me/bookmarks/${encodeURIComponent(workerId)}`, { method: 'DELETE' }),
 };
 
+const CLIENT_PASS = {
+  init: () => api('/client-pass'),
+  setPin: (pin) => api('/client-pass/pin', { method: 'POST', body: { pin } }),
+  restore: ({ code, pin }) => api('/client-pass/restore', { method: 'POST', body: { code, pin } }),
+  addSearch: (entry) => api('/client-pass/searches', { method: 'POST', body: entry }),
+  deleteSearch: (id) => api(`/client-pass/searches/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  clearSearches: () => api('/client-pass/searches', { method: 'DELETE' }),
+  addBookmarks: (workerIds) => api('/client-pass/bookmarks', { method: 'POST', body: { workerIds } }),
+  removeBookmark: (workerId) => api(`/client-pass/bookmarks/${encodeURIComponent(workerId)}`, { method: 'DELETE' }),
+};
+
 const authError = (e) => e.message === 'NOT_CONNECTED' ? 'Accounts are not connected yet. Browsing is open to everyone.' : e.message;
+
+function applyClientPassPayload(pass, { forceAll = false } = {}) {
+  if (!pass || !pass.code) return;
+  state.clientId = pass.code;
+  state.clientHasPin = Boolean(pass.hasPin);
+  try { localStorage.setItem('nkabom_client_id', pass.code); } catch {}
+  if (Array.isArray(pass.searches)) {
+    state.searchHistory = pass.searches;
+    saveSearchHistory(pass.searches);
+  }
+  if ((!state.user || forceAll) && Array.isArray(pass.bookmarkIds)) {
+    state.savedIds = pass.bookmarkIds;
+    state.savedWorkers = pass.savedWorkers || [];
+    saveLocalSavedIds(state.savedIds);
+  }
+}
+
+async function hydrateClientPass() {
+  try {
+    const localSavedBefore = [...state.savedIds];
+    const pass = await CLIENT_PASS.init();
+    if (!pass || !pass.code) return;
+    if (!state.user && localSavedBefore.length) {
+      const existingSet = new Set(pass.bookmarkIds || []);
+      const missing = localSavedBefore.filter((id) => !existingSet.has(id));
+      if (missing.length) {
+        const merged = await CLIENT_PASS.addBookmarks(missing).catch(() => null);
+        if (merged && Array.isArray(merged.bookmarkIds)) {
+          pass.bookmarkIds = merged.bookmarkIds;
+          pass.savedWorkers = merged.savedWorkers || pass.savedWorkers || [];
+        }
+      }
+    }
+    applyClientPassPayload(pass);
+    if (state.screen === 'account' || state.screen === 'market') render();
+  } catch {}
+}
 
 async function syncBookmarksAfterAuth() {
   if (!state.user) return;
@@ -500,6 +706,16 @@ function toggleBookmark(worker) {
         }
       })
       .catch(() => {});
+  } else {
+    (already ? CLIENT_PASS.removeBookmark(id) : CLIENT_PASS.addBookmarks([id]))
+      .then((res) => {
+        if (res && Array.isArray(res.bookmarkIds)) {
+          state.savedIds = res.bookmarkIds;
+          state.savedWorkers = res.savedWorkers || state.savedWorkers;
+          saveLocalSavedIds(state.savedIds);
+        }
+      })
+      .catch(() => {});
   }
 
   if (state.screen === 'market') {
@@ -515,6 +731,7 @@ async function startSession(user) {
   try { state.myProfile = await AUTH.getMyWorkerProfile(); } catch (e) { state.myProfile = null; }
   try { state.sub = await BILLING.getStatus(); } catch (e) { state.sub = null; }
   state.draft = state.myProfile ? { ...freshDraft(), ...state.myProfile } : { ...freshDraft(), name: user.name || '', phone: user.phone || '' };
+  state.quickAvailNote = state.myProfile ? (state.myProfile.availabilityNote || '') : '';
   state.pendingPhotoFile = null;
   await syncBookmarksAfterAuth();
 }
@@ -569,7 +786,15 @@ async function submitAuth(f) {
     }
     await startSession(user);
     state.showPw = false;
-    wantsWorker ? setRole('worker') : setRole('customer');
+    if (wantsWorker) setAccountMode('pro');
+    await showTransitionLoader(signup ? 'signup' : 'signin', { isWorker: wantsWorker });
+    if (wantsWorker) {
+      openDashboardWithAnticipation();
+    } else {
+      state.role = 'customer';
+      go('market');
+      loadMarket(1, { silent: false, anticipate: false });
+    }
   } catch (e) {
     state.busy = '';
     a.error = authError(e);
@@ -626,6 +851,7 @@ async function saveProfile() {
     const elapsed = Date.now() - startedAt;
     if (elapsed < 520) await waitMs(520 - elapsed);
     state.draft = { ...freshDraft(), ...state.myProfile };
+    state.quickAvailNote = state.myProfile.availabilityNote || '';
     try { state.sub = await BILLING.getStatus(); } catch {}
     try { state.analytics = await WORKERS.getAnalytics(); } catch {}
     state.marketCache = null;
@@ -806,6 +1032,7 @@ async function loadMarket(page = state.workersPage, { silent = false, anticipate
       state.marketCache = res.items || [];
     }
     state.workersLoading = false;
+    state.marketSyncedAt = new Date().toISOString();
   } catch (e) {
     if (e && e.name === 'AbortError') return;
     if (seq !== state.marketSeq) return;
@@ -815,28 +1042,49 @@ async function loadMarket(page = state.workersPage, { silent = false, anticipate
   if (state.screen === 'market') updateMarket();
 }
 
+let historyTimer;
 function scheduleMarketLoad(page = 1) {
   triggerSearchPulse();
   applyLocalFilter(page);
   clearTimeout(marketTimer);
   marketTimer = setTimeout(() => loadMarket(page, { silent: true }), 140);
+  clearTimeout(historyTimer);
+  historyTimer = setTimeout(() => {
+    if (state.screen === 'market' && (state.query.trim() || state.location.trim())) {
+      recordSearchHistory({ query: state.query, location: state.location, category: state.category });
+    }
+  }, 850);
 }
 
 const sessionViewedIds = new Set();
-async function openWorkerById(id, pushHash = true) {
-  if (pushHash) {
-    history.replaceState(null, '', `#pro/${encodeURIComponent(id)}`);
+async function openWorkerById(idOrSlug, pushUrl = true) {
+  const key = String(idOrSlug || '').trim();
+  if (!key) return;
+  const cached = state.workers.find((w) => String(w.id) === key || String(w.slug) === key)
+    || state.stats.topWorkers.find((w) => String(w.id) === key || String(w.slug) === key)
+    || state.savedWorkers.find((w) => String(w.id) === key || String(w.slug) === key);
+  if (pushUrl) {
+    const slugSegment = (cached && cached.slug) || key;
+    history.pushState(null, '', `/pro/${encodeURIComponent(slugSegment)}${location.search}`);
   }
-  const cached = state.workers.find((w) => String(w.id) === String(id)) || state.stats.topWorkers.find((w) => String(w.id) === String(id));
   state.selected = cached || null;
   state.profileLoading = !cached;
   state.profileError = '';
   go('profile');
   try {
-    const fresh = await WORKERS.get(id);
+    const fresh = await WORKERS.get(key);
     if (state.screen === 'profile') {
       state.selected = fresh;
       state.profileLoading = false;
+      if (pushUrl && fresh && fresh.slug) {
+        const expectedPath = `/pro/${encodeURIComponent(fresh.slug)}`;
+        if (location.pathname !== expectedPath) {
+          history.replaceState(null, '', `${expectedPath}${location.search}`);
+        }
+      }
+      if (fresh && fresh.name) {
+        document.title = `${fresh.name} — ${fresh.category} in ${fresh.area} | Nkabom`;
+      }
       render();
     }
     if (fresh && fresh.id && !sessionViewedIds.has(fresh.id)) {
@@ -1034,11 +1282,22 @@ const accountSkeletonHTML = () => {
   </section>`;
 };
 
+const formatHistoryTime = (iso) => {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return 'Recent';
+    return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  } catch {
+    return 'Recent';
+  }
+};
+
 const accountScreen = () => {
   if (state.accountLoading) return accountSkeletonHTML();
-  const u = state.user; if (!u) return authScreen();
+  const u = state.user;
   const mp = state.myProfile;
   const sub = state.sub;
+  const mode = state.accountMode === 'pro' ? 'pro' : 'client';
   const input = 'w-full rounded-xl border border-slate-300 px-3 py-2.5 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
   const pwInput = (label, name, ac) => `
     <label class="grid gap-1 text-sm font-semibold">${label}
@@ -1047,47 +1306,246 @@ const accountScreen = () => {
         <button type="button" data-action="toggle-acct-pw" aria-label="${state.showAcctPw ? 'Hide passwords' : 'Show passwords'}" aria-pressed="${state.showAcctPw}" class="pc-pw-toggle">${icon(state.showAcctPw ? 'eye-off' : 'eye', 17)}</button>
       </span>
     </label>`;
-  const roleSummary = mp
-    ? `Worker profile live (${esc(mp.category)})${sub ? ` · ${sub.status === 'trial' ? 'Free trial' : sub.status === 'active' ? 'Active plan' : 'Payment needed'}` : ''}`
-    : 'Customer account · No worker profile yet';
+
+  const appearanceCard = `
+    <div id="acct-appearance" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h2 class="font-bold text-lg text-ink">Appearance</h2>
+        <p class="text-sm text-slate-500">Choose how Nkabom looks on this device.</p>
+      </div>
+      <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-sm font-semibold shrink-0">
+        <button type="button" data-action="set-theme" data-theme="light" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg transition-colors whitespace-nowrap shrink-0 ${state.theme !== 'dark' ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">${icon('sun', 15)} Light</button>
+        <button type="button" data-action="set-theme" data-theme="dark" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg transition-colors whitespace-nowrap shrink-0 ${state.theme === 'dark' ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">${icon('moon', 15)} Dark</button>
+      </div>
+    </div>`;
+
+  const savedCard = `
+    <div id="acct-saved" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="font-bold text-lg text-ink">Saved professionals (${state.savedIds.length})</h2>
+          <p class="text-sm text-slate-500">Your shortlisted experts synced across sessions.</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${state.savedIds.length >= 2 ? `<button type="button" data-action="compare-open" class="rounded-xl bg-brand text-white font-bold px-4 py-2 text-xs">Compare (${state.savedIds.length})</button>` : ''}
+          <button type="button" data-action="open-saved" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold hover:border-brand/40 hover:text-brand">View in directory</button>
+        </div>
+      </div>
+      ${state.savedWorkers.length ? `<div class="grid sm:grid-cols-2 gap-3">${state.savedWorkers.slice(0, 4).map((sw) => `
+        <div class="rounded-2xl border border-slate-200 p-3 flex items-center justify-between gap-3">
+          <button type="button" data-action="open" data-id="${esc(sw.id)}" class="flex items-center gap-3 min-w-0 text-left flex-1">
+            ${avatar(sw, 40)}
+            <div class="min-w-0">
+              <div class="font-bold text-sm text-ink truncate">${esc(sw.name)}</div>
+              <div class="text-xs text-slate-500 truncate">${esc(sw.category)} · ${esc(sw.area)}</div>
+            </div>
+          </button>
+          <button type="button" data-action="bookmark" data-id="${esc(sw.id)}" aria-label="Remove bookmark" aria-pressed="true" class="pc-bm-btn">${icon('bookmark', 15, 'fill-amber-rate')}</button>
+        </div>`).join('')}</div>`
+      : `<p class="text-sm text-slate-500">Tap the bookmark icon on any professional card to save them here for quick comparison.</p>`}
+    </div>`;
+
+  const headerSubtitle = mode === 'pro'
+    ? (u ? `${esc(u.email)}${mp ? ` · ${esc(mp.category)} (${sub ? (sub.status === 'trial' ? 'Free trial' : sub.status === 'active' ? 'Active plan' : 'Payment needed') : 'Live'})` : ' · Pro Studio ready'}` : 'Worker account · Publish your skill profile & direct WhatsApp leads')
+    : `Free browser account · ${state.searchHistory.length} recent searches · ${state.savedIds.length} saved`;
 
   return `
   <section class="max-w-5xl mx-auto px-5 py-8 grid gap-6 pop">
     <div class="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 min-w-0 overflow-hidden">
       <div class="flex items-center gap-4 min-w-0 w-full flex-1">
-        ${avatar({ name: u.name, tint: 0, photo: mp ? mp.photo : null }, 64)}
+        ${u ? avatar({ name: u.name, tint: 0, photo: mp ? mp.photo : null }, 64) : `<div class="w-14 h-14 rounded-full bg-brand-soft text-brand grid place-items-center shrink-0">${icon(mode === 'pro' ? 'briefcase' : 'user', 26)}</div>`}
         <div class="min-w-0 flex-1">
           <div class="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
-            <span>Account &amp; Settings</span>
+            <span>Account Hub · ${mode === 'pro' ? 'Pro Studio' : 'Client Pass'}</span>
             <span aria-hidden="true">·</span>
-            <button type="button" data-action="role" data-role="customer" class="text-brand hover:underline">Back to Find Pros</button>
+            <span class="pc-user-id-code text-brand">${esc(state.clientId)}</span>
           </div>
-          <h1 class="mt-0.5 text-2xl font-extrabold text-ink truncate">${esc(u.name) || 'Your account'}</h1>
-          <p class="text-sm text-slate-500 truncate">${esc(u.email)}</p>
-          <p class="text-xs text-slate-400 mt-0.5 leading-relaxed">${roleSummary}</p>
+          <h1 class="mt-0.5 text-2xl font-extrabold text-ink truncate">${mode === 'pro' ? (u ? esc(u.name) : 'Nkabom Pro Studio') : (u ? `${esc(u.name)} · Client Pass` : 'Client Pass')}</h1>
+          <p class="text-sm text-slate-500 truncate">${headerSubtitle}</p>
         </div>
       </div>
       <div class="flex flex-wrap items-center gap-2 shrink-0">
-        <button type="button" data-action="edit-worker" class="rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-sm transition-colors whitespace-nowrap shrink-0">${mp ? 'Worker dashboard' : 'List a service'}</button>
-        <button type="button" data-action="signout" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-brand/40 hover:text-brand transition-colors whitespace-nowrap shrink-0">${icon('log-out', 15)} Sign out</button>
+        ${mode === 'pro'
+          ? (u
+            ? `<button type="button" data-action="edit-worker" class="rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-sm transition-colors whitespace-nowrap shrink-0">${mp ? 'Open Pro Studio' : 'Create Pro Profile'}</button>
+               <button type="button" data-action="signout" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-brand/40 hover:text-brand transition-colors whitespace-nowrap shrink-0">${icon('log-out', 15)} Sign out</button>`
+            : `<button type="button" data-action="auth-worker" data-mode="signup" class="rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-sm transition-colors whitespace-nowrap shrink-0">Create Pro Account</button>
+               <button type="button" data-action="auth-worker" data-mode="login" class="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-brand/40 hover:text-brand transition-colors whitespace-nowrap shrink-0">Sign in</button>`)
+          : `<button type="button" data-action="role" data-role="customer" class="inline-flex items-center gap-1.5 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold px-4 py-2.5 text-sm transition-colors whitespace-nowrap shrink-0">${icon('search', 15)} Find Pros</button>
+             <button type="button" data-action="switch-account-mode" data-mode="pro" class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:border-brand/40 hover:text-brand transition-colors whitespace-nowrap shrink-0">${icon('repeat', 15)} Pro Studio</button>`}
       </div>
     </div>
 
+    <div class="grid sm:grid-cols-2 gap-3" role="group" aria-label="Switch account type">
+      <button type="button" data-action="switch-account-mode" data-mode="client" data-active="${mode === 'client'}" class="pc-account-mode-card">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="w-11 h-11 rounded-xl grid place-items-center shrink-0 ${mode === 'client' ? 'bg-brand text-white' : 'bg-brand-soft text-brand'}">${icon('user', 20)}</span>
+            <div class="min-w-0">
+              <div class="font-extrabold text-base text-ink flex items-center gap-2">Client Pass <span class="pc-user-id-code text-xs text-brand">${esc(state.clientId)}</span></div>
+              <div class="text-xs text-slate-500 mt-0.5">Free account · Search history &amp; saved pros</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold shrink-0 ${mode === 'client' ? 'text-brand' : 'text-slate-400'}">${mode === 'client' ? 'Active' : 'Switch'}</span>
+        </div>
+        <p class="mt-2.5 text-xs text-slate-600 leading-relaxed">Browse professionals freely with your persistent ID, revisit previous searches, and compare favorites.</p>
+      </button>
+
+      <button type="button" data-action="switch-account-mode" data-mode="pro" data-active="${mode === 'pro'}" class="pc-account-mode-card">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3 min-w-0">
+            <span class="w-11 h-11 rounded-xl grid place-items-center shrink-0 ${mode === 'pro' ? 'bg-brand text-white' : 'bg-brand-soft text-brand'}">${icon('briefcase', 20)}</span>
+            <div class="min-w-0">
+              <div class="font-extrabold text-base text-ink">Pro Studio</div>
+              <div class="text-xs text-slate-500 mt-0.5">${u ? `Signed in · ${mp ? esc(mp.category) : 'Ready for profile'}` : 'Worker sign up · 30-day free trial'}</div>
+            </div>
+          </div>
+          <span class="text-xs font-bold shrink-0 ${mode === 'pro' ? 'text-brand' : 'text-slate-400'}">${mode === 'pro' ? 'Active' : 'Switch'}</span>
+        </div>
+        <p class="mt-2.5 text-xs text-slate-600 leading-relaxed">Sign up or manage your worker listing, portfolio photos, Blazes, QR poster, and WhatsApp leads.</p>
+      </button>
+    </div>
+
+    ${mode === 'client' ? `
+    <div class="grid lg:grid-cols-12 gap-6 items-start">
+      <aside class="lg:col-span-4 lg:sticky lg:top-20 grid gap-4">
+        <div id="client-pass-card" class="bg-white rounded-3xl border border-slate-200 p-5 grid gap-3">
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-xs font-bold uppercase tracking-widest text-amber-rate">Client Pass ID</div>
+            <span class="text-[11px] font-semibold ${state.clientHasPin ? 'text-emerald-700' : 'text-slate-500'}">${state.clientHasPin ? 'PIN Sync active' : 'Browser synced'}</span>
+          </div>
+          <div class="flex items-center justify-between gap-3 rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3">
+            <span class="pc-user-id-code text-xl text-ink">${esc(state.clientId)}</span>
+            <button type="button" data-action="copy-client-id" class="inline-flex items-center gap-1 rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:border-brand/40 hover:text-brand">${icon('copy', 13)} Copy</button>
+          </div>
+          <p class="text-xs text-slate-500 leading-relaxed">Saved server-side with zero sign-up—keeping your searches and shortlist ready across visits.</p>
+
+          <form data-form="client-pin" class="pt-3 border-t border-slate-200 grid gap-2.5">
+            <div class="text-xs font-bold text-ink">${state.clientHasPin ? 'Update cross-device Sync PIN' : 'Set a Sync PIN (4–8 digits)'}</div>
+            <div class="flex gap-2">
+              <input name="pin" data-field="clientPinForm.pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" required value="${esc(state.clientPinForm.pin)}" placeholder="e.g. 4820" class="${input} py-2 text-sm flex-1 min-w-0">
+              <button class="rounded-xl bg-brand hover:bg-brand-dark disabled:bg-slate-300 text-white font-bold px-3.5 py-2 text-xs whitespace-nowrap shrink-0" ${state.clientPinForm.busy ? 'disabled' : ''}>${state.clientPinForm.busy ? 'Saving…' : (state.clientHasPin ? 'Update PIN' : 'Set PIN')}</button>
+            </div>
+            ${state.clientPinForm.error ? `<p class="text-xs text-red-600" role="alert">${esc(state.clientPinForm.error)}</p>` : ''}
+            ${state.clientPinForm.info ? `<p class="text-xs text-emerald-700" role="status">${esc(state.clientPinForm.info)}</p>` : ''}
+          </form>
+
+          <details class="pt-2 border-t border-slate-200 text-xs">
+            <summary class="cursor-pointer font-semibold text-slate-600 hover:text-brand">Restore a Client Pass from another device</summary>
+            <form data-form="client-restore" class="mt-3 grid gap-2">
+              <input name="code" data-field="clientRestoreForm.code" maxlength="12" required value="${esc(state.clientRestoreForm.code)}" placeholder="Client Pass ID (e.g. USER4821)" class="${input} py-2 text-xs uppercase">
+              <input name="pin" data-field="clientRestoreForm.pin" type="password" inputmode="numeric" minlength="4" maxlength="8" required value="${esc(state.clientRestoreForm.pin)}" placeholder="4–8 digit Sync PIN" class="${input} py-2 text-xs">
+              ${state.clientRestoreForm.error ? `<p class="text-xs text-red-600" role="alert">${esc(state.clientRestoreForm.error)}</p>` : ''}
+              <button class="rounded-xl border border-brand text-brand hover:bg-brand-soft font-bold py-2 text-xs" ${state.clientRestoreForm.busy ? 'disabled' : ''}>${state.clientRestoreForm.busy ? 'Restoring…' : 'Restore Pass'}</button>
+            </form>
+          </details>
+        </div>
+
+        <div class="rounded-3xl bg-brand-soft border border-brand/10 p-5 grid gap-3">
+          <div class="text-xs font-bold uppercase tracking-widest text-brand">Are you a skilled pro?</div>
+          <div class="font-bold text-ink">Switch to Pro Studio</div>
+          <p class="text-xs text-slate-600 leading-relaxed">Publish your trade profile, upload portfolio work, and get direct WhatsApp inquiries. First ${PLAN.trialDays} days free.</p>
+          <button type="button" data-action="switch-account-mode" data-mode="pro" class="rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-4 py-2.5 text-xs transition-colors">Switch to Pro Studio</button>
+        </div>
+      </aside>
+
+      <div class="lg:col-span-8 grid gap-6">
+        <div id="acct-history" class="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-4">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 class="font-bold text-lg text-ink flex items-center gap-2">${icon('history', 18, 'text-brand')} Search history (${state.searchHistory.length})</h2>
+              <p class="text-sm text-slate-500">Tap any past search to jump straight back into matching pros.</p>
+            </div>
+            ${state.searchHistory.length ? `<button type="button" data-action="clear-history" class="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-red-200 hover:text-red-700">Clear history</button>` : ''}
+          </div>
+          ${state.searchHistory.length ? `<div class="grid gap-2.5">${state.searchHistory.map((item) => {
+            const label = [item.query || item.category || 'All trades', item.location ? `in ${item.location}` : ''].filter(Boolean).join(' ');
+            return `
+            <div class="pc-history-row pc-card-stagger">
+              <button type="button" data-action="run-history" data-id="${esc(item.id)}" class="flex items-center gap-3 min-w-0 flex-1 text-left">
+                <span class="w-9 h-9 rounded-xl bg-brand-soft text-brand grid place-items-center shrink-0">${icon('search', 16)}</span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-sm font-bold text-ink truncate">${esc(label)}</span>
+                  <span class="block text-xs text-slate-500 truncate">${item.category && item.query ? `${esc(item.category)} · ` : ''}Searched ${esc(formatHistoryTime(item.searchedAt))}</span>
+                </span>
+              </button>
+              <button type="button" data-action="del-history" data-id="${esc(item.id)}" aria-label="Remove search from history" class="pc-icon-btn shrink-0">${icon('trash-2', 15)}</button>
+            </div>`;
+          }).join('')}</div>`
+          : `<div class="rounded-2xl bg-slate-50 border border-slate-200 p-5 grid gap-3 text-center">
+              <p class="text-sm font-semibold text-ink">No searches recorded yet</p>
+              <p class="text-xs text-slate-500">Every trade, skill, or city you search appears here for one-tap replay.</p>
+              <div class="flex flex-wrap justify-center gap-2 pt-1">
+                ${QUICK_SEARCHES.slice(0, 3).map((q) => `<button type="button" data-action="quick-search" data-svc="${esc(q.svc)}" data-loc="${esc(q.loc)}" class="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold hover:border-brand/40 hover:text-brand">${esc(q.label)}</button>`).join('')}
+              </div>
+            </div>`}
+        </div>
+
+        ${savedCard}
+        ${appearanceCard}
+
+        <div class="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 flex flex-wrap items-center justify-between gap-3 text-sm">
+          <div class="text-slate-500">Free customer access · Ghana Data Protection Act (Act 843)</div>
+          <div class="flex items-center gap-4 font-semibold">
+            <button type="button" data-action="privacy" class="text-slate-600 hover:text-brand hover:underline">Privacy Policy</button>
+            <button type="button" data-action="terms" class="text-slate-600 hover:text-brand hover:underline">Terms</button>
+          </div>
+        </div>
+      </div>
+    </div>`
+    : !u ? `
+    <div class="grid lg:grid-cols-12 gap-6 items-stretch">
+      <div class="lg:col-span-6 band rounded-3xl p-6 sm:p-8 text-white flex flex-col justify-between gap-6">
+        <div>
+          <div class="text-xs font-bold tracking-widest text-amber-rate uppercase">Nkabom Pro Studio</div>
+          <h2 class="mt-2 text-2xl sm:text-3xl font-extrabold leading-tight text-balance">Turn your craft into a verified public profile.</h2>
+          <p class="mt-3 text-sm text-white/80 leading-relaxed">Sign up once to publish your trade profile, showcase up to 12 photos, share your QR poster, and get hired straight on WhatsApp.</p>
+          <ul class="mt-5 grid gap-2.5 text-sm text-white/80">
+            <li class="flex items-center gap-2.5"><span class="w-5 h-5 rounded-lg bg-white/15 text-amber-rate grid place-items-center shrink-0">${icon('check', 13)}</span><span>First ${PLAN.trialDays} days free · then ${ghs(PLAN.price)}/month</span></li>
+            <li class="flex items-center gap-2.5"><span class="w-5 h-5 rounded-lg bg-white/15 text-amber-rate grid place-items-center shrink-0">${icon('check', 13)}</span><span>0% commission on jobs you win</span></li>
+            <li class="flex items-center gap-2.5"><span class="w-5 h-5 rounded-lg bg-white/15 text-amber-rate grid place-items-center shrink-0">${icon('check', 13)}</span><span>Private one-time client links for Blazes &amp; reviews</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="lg:col-span-6 bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 flex flex-col justify-center gap-4">
+        <h2 class="text-2xl font-extrabold text-ink">Enter Pro Studio</h2>
+        <p class="text-sm text-slate-600 leading-relaxed">Worker profiles require an account so you can manage your listing, upload work photos, and verify your Ghana Card.</p>
+        <div class="grid gap-3 pt-1">
+          <button type="button" data-action="auth-worker" data-mode="signup" class="w-full rounded-xl bg-brand hover:bg-brand-dark text-white font-bold py-3.5 px-5 text-sm transition-colors">Create Pro Account (Sign up)</button>
+          <button type="button" data-action="auth-worker" data-mode="login" class="w-full rounded-xl border-2 border-brand text-brand hover:bg-brand-soft font-bold py-3 px-5 text-sm transition-colors">Sign in to existing Pro Studio</button>
+          <button type="button" data-action="switch-account-mode" data-mode="client" class="w-full rounded-xl border border-slate-200 py-2.5 px-4 text-xs font-semibold text-slate-600 hover:border-brand/40 hover:text-brand">Back to free Client Pass (${esc(state.clientId)})</button>
+        </div>
+      </div>
+    </div>`
+    : `
     <div class="grid lg:grid-cols-12 gap-6 items-start">
       <aside class="lg:col-span-4 lg:sticky lg:top-20 grid gap-4">
         <nav aria-label="Account sections" class="bg-white rounded-3xl border border-slate-200 p-3 grid gap-1">
-          <div class="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">Settings menu</div>
+          <div class="px-3 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-400">Pro Studio Menu</div>
           <button type="button" data-action="acct-jump" data-target="acct-personal" class="pc-settings-link"><span>Personal details</span>${icon('user', 16)}</button>
+          <button type="button" data-action="acct-jump" data-target="acct-worker" class="pc-settings-link"><span>Worker profile &amp; plan</span>${icon('briefcase', 16)}</button>
           <button type="button" data-action="acct-jump" data-target="acct-saved" class="pc-settings-link"><span>Saved pros (${state.savedIds.length})</span>${icon('bookmark', 16)}</button>
           <button type="button" data-action="acct-jump" data-target="acct-appearance" class="pc-settings-link"><span>Appearance</span>${icon(state.theme === 'dark' ? 'moon' : 'sun', 16)}</button>
           <button type="button" data-action="acct-jump" data-target="acct-security" class="pc-settings-link"><span>Security &amp; password</span>${icon('shield-check', 16)}</button>
-          <button type="button" data-action="acct-jump" data-target="acct-worker" class="pc-settings-link"><span>Worker profile &amp; plan</span>${icon('briefcase', 16)}</button>
           <button type="button" data-action="acct-jump" data-target="acct-privacy" class="pc-settings-link"><span>Privacy &amp; account deletion</span>${icon('clock', 16)}</button>
         </nav>
         ${planCard()}
       </aside>
 
       <div class="lg:col-span-8 grid gap-6">
+        <div id="acct-worker" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6">
+          <h2 class="font-bold text-lg text-ink">My worker profile</h2>
+          ${mp ? `<p class="text-slate-500 text-sm mt-1 mb-4">This is how customers see you in search results.</p>
+            <div class="max-w-sm">${workerCard({ tint: 0, rating: 0, reviews: 0, ...mp }, true)}</div>
+            <div class="mt-4 flex flex-wrap gap-3">
+              <button type="button" data-action="edit-worker" class="rounded-xl bg-brand text-white font-bold px-5 py-2.5 text-sm hover:bg-brand-dark transition-colors">Edit in Pro Studio</button>
+              <button type="button" data-action="confirm-delete-worker" class="rounded-xl border border-red-200 text-red-700 font-semibold px-5 py-2.5 text-sm hover:bg-red-50 transition-colors">Delete worker profile</button>
+            </div>`
+          : `<p class="text-slate-500 text-sm mt-1">You have not created a worker profile yet. Offer your services and get hired directly on WhatsApp.</p>
+            <button type="button" data-action="edit-worker" class="mt-4 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-6 py-2.5 text-sm transition-colors">Create worker profile</button>`}
+        </div>
+
         <form id="acct-personal" data-form="account" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-4">
           <div>
             <h2 class="font-bold text-lg text-ink">Personal details</h2>
@@ -1104,41 +1562,8 @@ const accountScreen = () => {
           </div>
         </form>
 
-        <div id="acct-saved" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h2 class="font-bold text-lg text-ink">Saved professionals (${state.savedIds.length})</h2>
-              <p class="text-sm text-slate-500">Your shortlisted experts synced across sessions.</p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              ${state.savedIds.length >= 2 ? `<button type="button" data-action="compare-open" class="rounded-xl bg-brand text-white font-bold px-4 py-2 text-xs">Compare (${state.savedIds.length})</button>` : ''}
-              <button type="button" data-action="open-saved" class="rounded-xl border border-slate-300 px-4 py-2 text-xs font-semibold hover:border-brand/40 hover:text-brand">View in directory</button>
-            </div>
-          </div>
-          ${state.savedWorkers.length ? `<div class="grid sm:grid-cols-2 gap-3">${state.savedWorkers.slice(0, 4).map((sw) => `
-            <div class="rounded-2xl border border-slate-200 p-3 flex items-center justify-between gap-3">
-              <button type="button" data-action="open" data-id="${esc(sw.id)}" class="flex items-center gap-3 min-w-0 text-left flex-1">
-                ${avatar(sw, 40)}
-                <div class="min-w-0">
-                  <div class="font-bold text-sm text-ink truncate">${esc(sw.name)}</div>
-                  <div class="text-xs text-slate-500 truncate">${esc(sw.category)} · ${esc(sw.area)}</div>
-                </div>
-              </button>
-              <button type="button" data-action="bookmark" data-id="${esc(sw.id)}" aria-label="Remove bookmark" aria-pressed="true" class="pc-bm-btn">${icon('bookmark', 15, 'fill-amber-rate')}</button>
-            </div>`).join('')}</div>`
-          : `<p class="text-sm text-slate-500">Tap the bookmark icon on any professional card to save them here for quick comparison.</p>`}
-        </div>
-
-        <div id="acct-appearance" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h2 class="font-bold text-lg text-ink">Appearance</h2>
-            <p class="text-sm text-slate-500">Choose how Nkabom looks on this device.</p>
-          </div>
-          <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-sm font-semibold shrink-0">
-            <button type="button" data-action="set-theme" data-theme="light" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg transition-colors whitespace-nowrap shrink-0 ${state.theme !== 'dark' ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">${icon('sun', 15)} Light</button>
-            <button type="button" data-action="set-theme" data-theme="dark" class="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg transition-colors whitespace-nowrap shrink-0 ${state.theme === 'dark' ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">${icon('moon', 15)} Dark</button>
-          </div>
-        </div>
+        ${savedCard}
+        ${appearanceCard}
 
         <form id="acct-security" data-form="password" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-4">
           <div>
@@ -1156,18 +1581,6 @@ const accountScreen = () => {
             <button class="rounded-xl border-2 border-brand text-brand hover:bg-brand-soft disabled:bg-slate-300 font-bold px-6 py-2.5 text-sm transition-colors" ${state.busy === 'pw' ? 'disabled' : ''}>${state.busy === 'pw' ? 'Updating…' : 'Update password'}</button>
           </div>
         </form>
-
-        <div id="acct-worker" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6">
-          <h2 class="font-bold text-lg text-ink">My worker profile</h2>
-          ${mp ? `<p class="text-slate-500 text-sm mt-1 mb-4">This is how customers see you in search results.</p>
-            <div class="max-w-sm">${workerCard({ tint: 0, rating: 0, reviews: 0, ...mp }, true)}</div>
-            <div class="mt-4 flex flex-wrap gap-3">
-              <button type="button" data-action="edit-worker" class="rounded-xl border-2 border-brand text-brand font-bold px-5 py-2.5 text-sm hover:bg-brand-soft transition-colors">Edit worker profile</button>
-              <button type="button" data-action="confirm-delete-worker" class="rounded-xl border border-red-200 text-red-700 font-semibold px-5 py-2.5 text-sm hover:bg-red-50 transition-colors">Delete worker profile</button>
-            </div>`
-          : `<p class="text-slate-500 text-sm mt-1">You have not created a worker profile yet. Offer your services and get hired directly on WhatsApp.</p>
-            <button type="button" data-action="edit-worker" class="mt-4 rounded-xl bg-brand hover:bg-brand-dark text-white font-bold px-6 py-2.5 text-sm transition-colors">Create worker profile</button>`}
-        </div>
 
         <div id="acct-privacy" class="scroll-mt-24 bg-white rounded-3xl border border-slate-200 p-5 sm:p-6 grid gap-4">
           <div class="flex flex-wrap items-center justify-between gap-4">
@@ -1187,7 +1600,7 @@ const accountScreen = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div>`}
   </section>`;
 };
 
@@ -1249,11 +1662,11 @@ const waButton = (w, big = false) => {
   const msg = encodeURIComponent(rawMsg);
   return `<a href="https://wa.me/${toWa(w.phone)}?text=${msg}" data-wa-worker="${esc(w.id)}" target="_blank" rel="noopener noreferrer" class="w-full ${big ? 'py-3.5 text-base' : 'py-2.5 text-sm'} inline-flex items-center justify-center gap-2 rounded-xl bg-wa hover:bg-wa-dark text-white font-bold shadow-sm transition-colors">${icon('message-circle', big ? 20 : 18)} Chat on WhatsApp</a>`;
 };
-const workerCard = (w, preview = false) => {
+const workerCard = (w, preview = false, extraCls = '') => {
   const strip = [0, 1, 2].map((i) => { const [c1, c2] = TINTS[((w.tint || 0) + i) % TINTS.length]; return `<span class="flex-1" style="background:linear-gradient(135deg,${c1},${c2})"></span>`; }).join('');
   const saved = !preview && isSaved(w.id);
   return `
-  <article ${preview ? '' : `data-action="open" data-id="${esc(w.id)}" tabindex="0" role="button"`} class="card-lift bg-white rounded-2xl border border-slate-200 hover:border-brand/40 overflow-hidden flex flex-col ${preview ? '' : 'cursor-pointer'}">
+  <article ${preview ? '' : `data-action="open" data-id="${esc(w.id)}" tabindex="0" role="button"`} class="card-lift ${extraCls} bg-white rounded-2xl border border-slate-200 hover:border-brand/40 overflow-hidden flex flex-col ${preview ? '' : 'cursor-pointer'}">
     <div class="flex h-10">${strip}</div>
     <div class="p-4 pt-0 flex-1 flex flex-col gap-3">
       <div class="flex items-end justify-between -mt-7">
@@ -1271,9 +1684,11 @@ const workerCard = (w, preview = false) => {
         ${availabilityBadge(w)}
         ${w.rateNote ? `<span class="pc-rate-chip">${icon('tag', 11)}<span class="truncate">${esc(w.rateNote)}</span></span>` : ''}
       </div>
+      ${w.availabilityNote ? `<div class="text-xs font-medium text-slate-600 truncate">${esc(w.availabilityNote)}</div>` : ''}
       ${w.bio ? `<p class="text-xs text-slate-600 line-clamp-2 leading-relaxed">${esc(w.bio)}</p>` : ''}
       <div class="mt-auto flex items-center justify-between gap-2 pt-1 tabular-nums">${rating(w)}${blazeChip(w)}</div>
       <div class="flex items-center justify-between gap-2 text-xs font-medium text-slate-500 tabular-nums"><span class="flex items-center gap-1 min-w-0"><span class="shrink-0">${icon('map-pin', 14)}</span><span class="truncate">${esc(w.area) || 'Your service area'}</span></span><span class="shrink-0">${esc(w.years || 0)} yrs exp</span></div>
+      ${w.freshnessLabel ? `<div class="text-xs text-slate-500 flex items-center gap-1.5 pc-freshness">${icon('clock', 12)}<span class="truncate">${esc(w.freshnessLabel)}</span></div>` : ''}
       ${waButton(w)}
     </div>
   </article>`;
@@ -1284,48 +1699,77 @@ const header = () => {
   const isDark = state.theme === 'dark';
   const u = state.user;
   const mp = state.myProfile;
+  const mode = state.accountMode === 'pro' ? 'pro' : 'client';
   const navCls = (on) => `pc-nav-link whitespace-nowrap shrink-0 transition-colors ${on ? 'text-brand font-bold' : 'text-slate-600 hover:text-brand'}`;
   const mobItem = (action, attrs, label, on) =>
     `<button data-action="${action}" ${attrs} class="w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-colors ${on ? 'bg-brand-soft text-brand' : 'text-slate-700 hover:bg-slate-50'}">${label}</button>`;
-  const acctOn = state.screen === 'account';
+  const acctOn = state.screen === 'account' || state.screen === 'auth';
   return `
   <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
-    <div class="max-w-6xl mx-auto px-4 sm:px-5 h-16 flex items-center justify-between gap-3">
+    <div class="max-w-6xl mx-auto px-4 sm:px-5 h-16 flex items-center justify-between gap-4">
       <button data-action="home" class="flex items-center gap-2 font-extrabold text-lg text-brand whitespace-nowrap shrink-0">
-        <img src="logo-icon.png" alt="" class="w-9 h-9 object-contain pc-logo-badge" onerror="this.style.display='none'">Nkabom</button>
-      <nav aria-label="Primary" class="hidden md:inline-flex items-center gap-6 text-sm font-semibold">
-        <button data-action="role" data-role="customer" data-active="${state.screen === 'market'}" class="${navCls(state.screen === 'market')}">Find Pros</button>
-        <button data-action="role" data-role="worker" data-active="${state.screen === 'dashboard'}" class="${navCls(state.screen === 'dashboard')}">For Workers</button>
-        <button data-action="about" data-active="${state.screen === 'about'}" class="${navCls(state.screen === 'about')}">About</button>
-        <button data-action="privacy" data-active="${state.screen === 'privacy'}" class="${navCls(state.screen === 'privacy')}">Privacy</button>
+        <img src="/logo-icon.png" alt="" class="w-9 h-9 object-contain pc-logo-badge" onerror="this.style.display='none'">Nkabom</button>
+      <nav aria-label="Primary" class="hidden md:inline-flex items-center gap-7 text-sm font-semibold">
+        <button data-action="role" data-role="customer" data-active="${state.screen === 'market' || state.screen === 'profile'}" class="${navCls(state.screen === 'market' || state.screen === 'profile')}">Find Pros</button>
+        <button data-action="role" data-role="worker" data-active="${state.screen === 'dashboard'}" class="${navCls(state.screen === 'dashboard')}">Pro Studio</button>
+        <button data-action="account" data-active="${acctOn}" class="${navCls(acctOn)}">Account</button>
       </nav>
-      <div class="flex items-center gap-2 shrink-0">
+      <div class="relative flex items-center gap-2 shrink-0" data-desktop-menu-wrap="1">
         <button data-action="toggle-theme" aria-pressed="${isDark}" aria-label="${isDark ? 'Switch to light mode' : 'Switch to dark mode'}" title="${isDark ? 'Switch to light mode' : 'Switch to dark mode'}" class="theme-toggle">${icon(isDark ? 'sun' : 'moon', 17)}</button>
-        <button data-action="${u ? 'account' : 'auth'}" data-mode="login" aria-label="${u ? 'Account and settings' : 'Sign in'}" class="inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm font-semibold transition-colors whitespace-nowrap shrink-0 ${u && acctOn ? 'bg-brand-soft border-brand/30 text-brand' : 'border-slate-200 text-brand hover:bg-brand-soft'}">${u ? `${avatar({ name: u.name, tint: 0, photo: mp ? mp.photo : null }, 22)}<span>Account</span>` : 'Sign in'}</button>
+        <button type="button" data-action="toggle-desktop-menu" aria-expanded="${state.desktopMenuOpen}" aria-haspopup="menu" aria-label="${state.desktopMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}" class="hidden md:inline-flex items-center gap-2 rounded-xl border px-3 py-1.5 text-sm font-semibold transition-colors whitespace-nowrap shrink-0 ${state.desktopMenuOpen ? 'bg-brand-soft border-brand/30 text-brand' : 'border-slate-200 text-slate-700 hover:border-brand/40 hover:text-brand'}">${u ? avatar({ name: u.name, tint: 0, photo: mp ? mp.photo : null }, 20) : icon(state.desktopMenuOpen ? 'x' : 'menu', 16)}<span>${u ? (mode === 'pro' ? 'Pro Studio' : esc((u.name || 'Menu').split(' ')[0])) : 'Menu'}</span>${icon('chevron-down', 14)}</button>
         <button data-action="toggle-menu" aria-expanded="${state.menuOpen}" aria-label="${state.menuOpen ? 'Close menu' : 'Open menu'}" class="md:hidden pc-icon-btn">${icon(state.menuOpen ? 'x' : 'menu', 18)}</button>
+
+        ${state.desktopMenuOpen ? `
+        <div class="pc-desktop-menu pc-menu-drop" role="menu" aria-label="Nkabom quick menu">
+          <div class="rounded-2xl bg-slate-50 border border-slate-200 p-3 grid gap-2 mb-2">
+            <div class="flex items-center justify-between gap-2 text-xs">
+              <span class="font-bold text-ink">${mode === 'pro' ? 'Pro Studio' : 'Client Pass'}</span>
+              <span class="pc-user-id-code text-brand">${esc(state.clientId)}</span>
+            </div>
+            <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold">
+              <button type="button" data-action="switch-account-mode" data-mode="client" class="py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${mode === 'client' ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">Client Pass</button>
+              <button type="button" data-action="switch-account-mode" data-mode="pro" class="py-1.5 px-2 rounded-lg transition-colors whitespace-nowrap ${mode === 'pro' ? 'bg-white shadow text-brand' : 'text-slate-500 hover:text-brand'}">Pro Studio</button>
+            </div>
+          </div>
+          <div class="grid gap-0.5">
+            <button type="button" data-action="home" data-active="${state.screen === 'landing'}" class="pc-menu-item"><span class="inline-flex items-center gap-2">${icon('home', 15)}Home</span></button>
+            <button type="button" data-action="role" data-role="customer" data-active="${state.screen === 'market'}" class="pc-menu-item"><span class="inline-flex items-center gap-2">${icon('search', 15)}Directory (Find Pros)</span></button>
+            <button type="button" data-action="role" data-role="worker" data-active="${state.screen === 'dashboard'}" class="pc-menu-item"><span class="inline-flex items-center gap-2">${icon('briefcase', 15)}Pro Studio</span><span class="text-xs text-slate-400">${mp ? 'Edit' : 'Join'}</span></button>
+            <button type="button" data-action="account" data-active="${acctOn}" class="pc-menu-item"><span class="inline-flex items-center gap-2">${icon('history', 15)}Account &amp; History</span><span class="text-xs text-slate-400 tabular-nums">${state.searchHistory.length}</span></button>
+            <button type="button" data-action="open-saved" class="pc-menu-item"><span class="inline-flex items-center gap-2">${icon('bookmark', 15)}Saved Pros</span><span class="text-xs text-slate-400 tabular-nums">${state.savedIds.length}</span></button>
+          </div>
+          <div class="mt-2 pt-2 border-t border-slate-200 grid gap-0.5">
+            <button type="button" data-action="about" data-active="${state.screen === 'about'}" class="pc-menu-item"><span>About Nkabom</span></button>
+            <button type="button" data-action="privacy" data-active="${state.screen === 'privacy'}" class="pc-menu-item"><span>Privacy Policy</span></button>
+            <button type="button" data-action="terms" data-active="${state.screen === 'terms'}" class="pc-menu-item"><span>Terms of Service</span></button>
+            ${u
+              ? `<button type="button" data-action="signout" class="pc-menu-item text-red-700"><span class="inline-flex items-center gap-2">${icon('log-out', 15)}Sign out</span></button>`
+              : `<button type="button" data-action="auth-worker" data-mode="signup" class="pc-menu-item text-brand"><span class="inline-flex items-center gap-2">${icon('sparkles', 15)}Sign up / Sign in (Pro)</span></button>`}
+          </div>
+        </div>` : ''}
       </div>
     </div>
     ${state.menuOpen ? `
     <nav aria-label="Mobile menu" class="md:hidden pc-mobile-menu px-4 py-3 grid gap-1">
-      ${mobItem('role', 'data-role="customer"', 'Find a Professional', state.screen === 'market')}
-      ${mobItem('role', 'data-role="worker"', "I'm a Worker", state.screen === 'dashboard')}
-      ${u ? mobItem('account', '', 'Account &amp; Settings', state.screen === 'account') : ''}
+      ${mobItem('account', '', `Account Hub (${esc(state.clientId)})`, acctOn)}
+      ${mobItem('open-saved', '', `Saved Pros (${state.savedIds.length})`, false)}
       ${mobItem('about', '', 'About Nkabom', state.screen === 'about')}
       ${mobItem('privacy', '', 'Privacy Policy', state.screen === 'privacy')}
       ${mobItem('terms', '', 'Terms of Service', state.screen === 'terms')}
-      ${u ? mobItem('signout', '', 'Sign out', false) : ''}
+      ${u ? mobItem('signout', '', 'Sign out', false) : mobItem('auth-worker', 'data-mode="signup"', 'Join Pro Studio', false)}
     </nav>` : ''}
   </header>`;
 };
 
 const bottomNav = () => {
-  if (['landing', 'profile', 'review', 'privacy', 'terms', 'about'].includes(state.screen)) return '';
-  const item = (action, attrs, ic, label, on) => `<button data-action="${action}" ${attrs} class="flex-1 flex flex-col items-center gap-0.5 py-2 text-xs font-semibold ${on ? 'text-brand' : 'text-slate-500'}">${icon(ic, 22)}${label}</button>`;
-  return `<div class="md:hidden h-20"></div>
-  <nav class="md:hidden fixed bottom-0 inset-x-0 z-20 bg-white/95 backdrop-blur border-t border-slate-200 flex pb-[env(safe-area-inset-bottom)]">
-    ${item('role', 'data-role="customer"', 'search', 'Find', state.screen === 'market')}
-    ${item('role', 'data-role="worker"', 'briefcase', 'Worker', state.screen === 'dashboard')}
-    ${item(state.user ? 'account' : 'auth', 'data-mode="login"', 'user', state.user ? 'Account' : 'Sign in', state.screen === 'account' || state.screen === 'auth')}
+  if (state.screen === 'review') return '';
+  const item = (action, attrs, ic, label, on) => `<button type="button" data-action="${action}" ${attrs} data-active="${on}" class="pc-bottom-item ${on ? 'text-brand font-bold' : 'text-slate-500'}">${icon(ic, 20)}${label}</button>`;
+  return `<div class="md:hidden h-20" aria-hidden="true"></div>
+  <nav aria-label="Mobile bottom navigation" class="md:hidden fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-slate-200 flex pc-bottom-nav">
+    ${item('home', '', 'home', 'Home', state.screen === 'landing')}
+    ${item('role', 'data-role="customer"', 'search', 'Find Pros', state.screen === 'market' || state.screen === 'profile')}
+    ${item('role', 'data-role="worker"', 'briefcase', 'Pro Studio', state.screen === 'dashboard')}
+    ${item('account', '', 'user', 'Account', state.screen === 'account' || state.screen === 'auth')}
   </nav>`;
 };
 
@@ -1360,7 +1804,7 @@ const siteFooter = () => `
     <div class="max-w-6xl mx-auto px-5 py-12 grid sm:grid-cols-2 lg:grid-cols-12 gap-8 items-start">
       <div class="lg:col-span-4 grid gap-3.5">
         <div class="flex items-center gap-3">
-          <img src="logo-white.png" alt="Nkabom" class="h-10 w-auto" onerror="this.style.display='none'">
+          <img src="/logo-white.png" alt="Nkabom" class="h-10 w-auto" onerror="this.style.display='none'">
           <div>
             <div class="font-extrabold text-lg leading-tight">Nkabom</div>
             <div class="text-xs text-white/70">Accra · Kumasi · Takoradi · Nationwide</div>
@@ -1382,8 +1826,8 @@ const siteFooter = () => `
       <div class="lg:col-span-3 grid gap-2.5 text-sm">
         <div class="text-xs font-bold uppercase tracking-widest text-amber-rate">Platform</div>
         <button type="button" data-action="role" data-role="customer" class="text-left pc-footer-link">Find a professional</button>
-        <button type="button" data-action="role" data-role="worker" class="text-left pc-footer-link">List your service</button>
-        <button type="button" data-action="${state.user ? 'account' : 'auth'}" data-mode="login" class="text-left pc-footer-link">${state.user ? 'Account &amp; settings' : 'Sign in / Create account'}</button>
+        <button type="button" data-action="role" data-role="worker" class="text-left pc-footer-link">Pro Studio</button>
+        <button type="button" data-action="account" class="text-left pc-footer-link">Account Hub &amp; History</button>
         <a href="mailto:${esc(SITE.email)}" class="pc-footer-link">${esc(SITE.email)}</a>
       </div>
 
@@ -1433,9 +1877,9 @@ const landing = () => {
   <div class="hero-bg">
   <section class="max-w-6xl mx-auto px-5 pt-12 pb-12 pop">
     <div class="grid lg:grid-cols-12 gap-10 lg:gap-8 items-center">
-      <div class="lg:col-span-7 text-center lg:text-left">
+      <div class="lg:col-span-7 text-center lg:text-left pc-hero-stagger">
         <div class="pc-eyebrow justify-center lg:justify-start">${icon('shield-check', 16)}<span>Every pro is reachable on WhatsApp in one tap</span></div>
-        <h1 class="mt-4 text-4xl sm:text-5xl lg:text-6xl font-extrabold text-ink leading-[1.05] text-balance tracking-tight">Find trusted local experts or <span class="hl">get hired instantly.</span></h1>
+        <h1 class="mt-4 text-4xl sm:text-5xl lg:text-6xl font-extrabold text-ink leading-[1.08] text-balance tracking-tight">Find trusted local experts or <span class="hl">get hired instantly.</span></h1>
         <p class="mt-5 text-lg text-slate-600 max-w-xl mx-auto lg:mx-0 leading-relaxed">Plumbers, electricians, carpenters, designers and technicians near you. Browse freely with no signup and agree on the job directly on WhatsApp.</p>
         <form data-form="landing" class="mt-7 max-w-xl mx-auto lg:mx-0 bg-white rounded-2xl shadow-lg border border-slate-200 p-2 flex flex-col sm:flex-row gap-2 text-left pc-search-bar">
           <label class="flex-1 flex items-center gap-2 px-3 py-2 rounded-xl hover:bg-slate-50">${icon('search', 19, 'text-brand')}
@@ -1478,7 +1922,7 @@ const landing = () => {
     </div>
     <div class="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-3">
       ${HOME_TRADES.map((t) => `
-        <button data-action="home-trade" data-name="${esc(t.name)}" data-mode="${t.mode}" class="card-lift text-left bg-white rounded-2xl border border-slate-200 hover:border-brand/40 p-4 flex items-center justify-between gap-3 transition-colors">
+        <button data-action="home-trade" data-name="${esc(t.name)}" data-mode="${t.mode}" class="card-lift pc-card-stagger text-left bg-white rounded-2xl border border-slate-200 hover:border-brand/40 p-4 flex items-center justify-between gap-3 transition-colors">
           <span class="flex items-start gap-3 min-w-0">
             <span class="pc-trade-icon grid place-items-center w-11 h-11 rounded-xl bg-brand-soft text-brand shrink-0">${icon(t.icon, 20)}</span>
             <span class="min-w-0">
@@ -1504,7 +1948,7 @@ const landing = () => {
     </div>
     <div class="mt-6 grid sm:grid-cols-3 gap-4">
       ${activeSteps.map(([num, title, desc]) => `
-        <div class="card-lift bg-white rounded-2xl border border-slate-200 p-6 flex flex-col gap-2">
+        <div class="card-lift pc-card-stagger bg-white rounded-2xl border border-slate-200 p-6 flex flex-col gap-2">
           <div class="pc-step-num">${num}</div>
           <h3 class="mt-1 text-lg font-bold text-ink">${esc(title)}</h3>
           <p class="text-slate-600 text-sm leading-relaxed">${esc(desc)}</p>
@@ -1790,6 +2234,16 @@ const profileSkeletonHTML = () => {
   </section>`;
 };
 
+const formatSyncTime = (iso) => {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return 'now';
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return 'now';
+  }
+};
+
 const resultsHTML = () => {
   if (state.workersLoading) {
     return marketSkeletonHTML();
@@ -1806,7 +2260,14 @@ const resultsHTML = () => {
         <button data-action="page" data-page="${state.workersPage + 1}" ${state.workersPage >= state.workersTotalPages ? 'disabled' : ''} class="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold disabled:opacity-20">Next</button>
       </div>`
     : '';
-  return `<div class="mt-6 flex items-baseline justify-between gap-3"><h3 class="text-lg font-bold text-ink">${esc(state.category) || 'All'} professionals</h3><span class="text-sm font-semibold text-slate-500 tabular-nums">${state.workersTotal} found</span></div>` +
+  return `<div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-lg font-bold text-ink">${esc(state.category) || 'All'} professionals</h3>
+      <div class="flex items-center gap-3 text-xs font-semibold tabular-nums">
+        ${state.marketSyncedAt ? `<span class="inline-flex items-center gap-1.5 text-emerald-700 pc-live-sync"><span class="pc-live-dot" aria-hidden="true"></span>Live · Synced ${esc(formatSyncTime(state.marketSyncedAt))}</span>` : ''}
+        <button type="button" data-action="refresh-market" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-brand/40 hover:text-brand" aria-label="Refresh directory">${icon('refresh-cw', 12)} Refresh</button>
+        <span class="text-sm text-slate-500">${state.workersTotal} found</span>
+      </div>
+    </div>` +
     (list.length === 0
       ? (hasFilters
         ? `<div class="mt-4 bg-white rounded-3xl border border-slate-200 p-10 text-center text-slate-500">
@@ -1819,7 +2280,7 @@ const resultsHTML = () => {
             <p class="font-bold text-ink">No professionals listed yet</p>
             <p class="text-sm mt-1">Profiles published by skilled pros will appear here.</p>
           </div>`)
-      : `<div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pop">${list.map((w) => workerCard(w)).join('')}</div>` + pager);
+      : `<div class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4 pop">${list.map((w) => workerCard(w, false, 'pc-card-stagger')).join('')}</div>` + pager);
 };
 
 const syncSearchClearButtons = () => {
@@ -1896,8 +2357,9 @@ const profileDetail = () => {
     ? `<div class="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-3">${portfolioItems.map((item) => `<figure class="relative aspect-[4/3] rounded-2xl overflow-hidden bg-slate-100 border border-slate-200"><img src="${esc(item.image_url)}" alt="${esc(item.title || 'Work sample')}" class="w-full h-full object-cover">${item.title ? `<figcaption class="absolute inset-x-0 bottom-0 bg-black/40 text-white px-3 py-1.5 text-xs font-semibold truncate">${esc(item.title)}</figcaption>` : ''}</figure>`).join('')}</div>`
     : `<p class="mt-2 text-sm text-slate-500">No portfolio photos uploaded yet.</p>`;
 
-  const shareUrl = `${location.href.split('#')[0]}#pro/${encodeURIComponent(w.id)}`;
+  const shareUrl = profileUrlFor(w);
   const saved = isSaved(w.id);
+  const trustLine = [w.availabilityNote, w.freshnessLabel].filter(Boolean).join(' · ');
 
   return `
   <section class="max-w-3xl mx-auto px-5 py-6 pb-32 pop">
@@ -1914,6 +2376,7 @@ const profileDetail = () => {
         </div>
         <h2 class="mt-3 text-2xl font-extrabold flex items-center gap-2">${esc(w.name)}${w.verified ? icon('badge-check', 24, 'text-emerald-600') : ''}</h2>
         <p class="text-slate-500 flex items-center gap-1 mt-1">${icon('map-pin', 16)} ${esc(w.area)}</p>
+        ${trustLine ? `<p class="text-xs font-medium text-slate-500 flex items-center gap-1.5 mt-1 pc-freshness">${icon('clock', 13)} <span>${esc(trustLine)}</span></p>` : ''}
         <div class="mt-3 flex flex-wrap items-center gap-2">${badge(w.category, ic)}${availabilityBadge(w)}${w.rateNote ? `<span class="pc-rate-chip">${icon('tag', 12)}${esc(w.rateNote)}</span>` : ''}${w.verified ? badge('ID verified', 'shield-check', 'green') : ''}${badge(w.type, w.type === 'Business' ? 'briefcase' : 'user')}</div>
         <div class="mt-5 grid grid-cols-3 gap-3 text-center">
           <div class="rounded-2xl bg-slate-50 py-3"><div class="font-extrabold text-lg flex justify-center items-center gap-1">${icon('star', 16, 'fill-amber-rate text-amber-rate')}${w.reviews > 0 ? w.rating : '—'}</div><div class="text-xs text-slate-500">${w.reviews} reviews</div></div>
@@ -1975,18 +2438,56 @@ const analyticsCard = () => {
   const an = state.analytics;
   if (!mp) return '';
   const st = an && an.strength ? an.strength : { score: 0, completedCount: 0, totalCount: 5, items: [] };
+  const series = an && Array.isArray(an.dailySeries) ? an.dailySeries : [];
+  const maxDay = Math.max(1, ...series.map((d) => (d.views || 0) + (d.waClicks || 0)));
+  const conv = an && typeof an.conversionRate === 'number' ? an.conversionRate : 0;
   return `
-  <div class="rounded-3xl bg-white border border-slate-200 p-5 grid gap-4">
+  <div id="pro-insights-card" class="rounded-3xl bg-white border border-slate-200 p-5 grid gap-4">
     <div class="flex items-center justify-between gap-2">
-      <h3 class="font-bold flex items-center gap-2">${icon('trending-up', 18, 'text-brand')} Reach &amp; profile strength</h3>
+      <h3 class="font-bold flex items-center gap-2">${icon('trending-up', 18, 'text-brand')} Insights &amp; Reach</h3>
       <span class="text-xs font-extrabold text-brand tabular-nums">${st.score}% ready</span>
     </div>
-    <div class="grid grid-cols-3 gap-2 text-center">
-      <div class="rounded-2xl bg-slate-50 p-2.5"><div class="font-extrabold text-lg text-ink tabular-nums">${an ? an.views7d : 0}</div><div class="text-[11px] text-slate-500">Views (7d)</div></div>
-      <div class="rounded-2xl bg-slate-50 p-2.5"><div class="font-extrabold text-lg text-emerald-600 tabular-nums">${an ? an.waClicks7d : 0}</div><div class="text-[11px] text-slate-500">WA leads (7d)</div></div>
-      <div class="rounded-2xl bg-slate-50 p-2.5"><div class="font-extrabold text-lg text-ink tabular-nums">${an ? an.totalViews : 0}</div><div class="text-[11px] text-slate-500">Total views</div></div>
+    <div class="grid grid-cols-2 gap-2.5 text-left">
+      <div class="pc-insight-stat">
+        <div class="text-[11px] font-semibold text-slate-500">Views (7d / 30d)</div>
+        <div class="font-extrabold text-lg text-ink tabular-nums mt-0.5">${an ? an.views7d : 0} <span class="text-xs font-semibold text-slate-400">/ ${an ? (an.views30d ?? an.views7d) : 0}</span></div>
+      </div>
+      <div class="pc-insight-stat">
+        <div class="text-[11px] font-semibold text-slate-500">WA Leads (7d / 30d)</div>
+        <div class="font-extrabold text-lg text-emerald-600 tabular-nums mt-0.5">${an ? an.waClicks7d : 0} <span class="text-xs font-semibold text-slate-400">/ ${an ? (an.waClicks30d ?? an.waClicks7d) : 0}</span></div>
+      </div>
+      <div class="pc-insight-stat">
+        <div class="text-[11px] font-semibold text-slate-500">Lead rate (30d)</div>
+        <div class="font-extrabold text-lg text-brand tabular-nums mt-0.5">${conv}%</div>
+      </div>
+      <div class="pc-insight-stat">
+        <div class="text-[11px] font-semibold text-slate-500">All-time views</div>
+        <div class="font-extrabold text-lg text-ink tabular-nums mt-0.5">${an ? an.totalViews : 0}</div>
+      </div>
     </div>
+    ${series.length ? `
     <div class="grid gap-2">
+      <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500">
+        <span>7-day activity</span>
+        <span>Views &amp; WhatsApp taps</span>
+      </div>
+      <div class="pc-bar-chart" role="img" aria-label="7-day profile views and WhatsApp leads">
+        ${series.map((d) => {
+          const v = Number(d.views || 0);
+          const c = Number(d.waClicks || 0);
+          const vPct = v > 0 ? Math.max(12, Math.round((v / maxDay) * 100)) : 4;
+          const cPct = c > 0 ? Math.max(12, Math.round((c / maxDay) * 100)) : 0;
+          return `<div class="pc-bar-col" title="${esc(d.label)}: ${v} views, ${c} WA leads">
+            <div class="pc-bar-wells">
+              <span class="pc-bar-fill pc-bar-fill--views" style="height:${vPct}%"></span>
+              ${cPct > 0 ? `<span class="pc-bar-fill pc-bar-fill--wa" style="height:${cPct}%"></span>` : ''}
+            </div>
+            <span class="pc-bar-label">${esc(d.label === 'Today' ? 'Now' : d.label.slice(0, 2))}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
+    <div class="grid gap-2 pt-1 border-t border-slate-200">
       <div class="pc-strength-bar"><div class="pc-strength-fill" style="width:${st.score}%"></div></div>
       <ul class="grid gap-1.5 text-xs text-slate-600">
         ${st.items.map((it) => `<li class="flex items-center gap-2"><span class="w-4 h-4 rounded-full grid place-items-center shrink-0 ${it.done ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-400'}">${icon('check', 11)}</span><span class="${it.done ? 'text-slate-500' : 'font-semibold text-ink'}">${esc(it.label)}</span></li>`).join('')}
@@ -1995,7 +2496,7 @@ const analyticsCard = () => {
   </div>`;
 };
 
-const profileUrlFor = (w) => `${location.href.split('#')[0]}#pro/${encodeURIComponent(w.id)}`;
+const profileUrlFor = (w) => `${location.origin}/pro/${encodeURIComponent((w && (w.slug || w.id)) || '')}`;
 
 const qrPosterCard = () => {
   const mp = state.myProfile;
@@ -2074,6 +2575,24 @@ const dashboard = () => {
   return `
   <section class="max-w-6xl mx-auto px-5 py-8 grid lg:grid-cols-5 gap-6 pop">
     <div class="lg:col-span-3 grid gap-6">
+      ${mp ? `
+      <div id="pro-quick-avail" class="bg-white rounded-3xl border border-slate-200 p-5 grid gap-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 class="font-bold text-base text-ink flex items-center gap-2">${icon('clock', 17, 'text-brand')} Live Availability</h3>
+            <p class="text-xs text-slate-500">${mp.freshnessLabel ? `${esc(mp.freshnessLabel)} · ` : ''}One tap updates customers on your live profile.</p>
+          </div>
+          ${availabilityBadge(mp)}
+        </div>
+        <div class="flex flex-wrap gap-2">
+          ${Object.entries(AVAIL_META).map(([k, m]) => `<button type="button" data-action="quick-avail" data-val="${k}" class="rounded-xl px-3.5 py-2 text-xs font-bold border transition-colors whitespace-nowrap shrink-0 ${(mp.availability || 'available') === k ? 'bg-brand text-white border-brand' : 'border-slate-300 text-slate-600 hover:border-brand/50'}" ${state.quickAvailBusy ? 'disabled' : ''}>${m.label}</button>`).join('')}
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input data-field="quickAvailNote" maxlength="40" value="${esc(state.quickAvailNote)}" placeholder="Status note (e.g. Back Mon 9am, In Osu today)" class="${input} text-sm flex-1">
+          <button type="button" data-action="save-quick-avail" class="rounded-xl border border-brand text-brand hover:bg-brand-soft font-bold px-4 py-2 text-xs whitespace-nowrap shrink-0" ${state.quickAvailBusy ? 'disabled' : ''}>${state.quickAvailBusy ? 'Updating…' : 'Update note'}</button>
+        </div>
+      </div>` : ''}
+
       <div class="bg-white rounded-3xl border border-slate-200 p-5 sm:p-6">
         <h2 class="text-2xl font-extrabold">${mp ? 'Edit your public profile' : 'Create your public profile'}</h2>
         <p class="text-slate-500 mt-1">Customers chat with you directly on WhatsApp. No commission, no middleman.</p>
@@ -2096,11 +2615,15 @@ const dashboard = () => {
             <label class="grid gap-1 text-sm font-semibold">Service areas <span class="text-xs font-normal text-slate-400">Separate neighborhoods with commas</span><input class="${input}" data-field="draft.area" maxlength="80" value="${esc(d.area)}" placeholder="e.g. East Legon, Osu, Tema"></label>
             <label class="grid gap-1 text-sm font-semibold">WhatsApp number<input class="${input}" inputmode="tel" maxlength="20" data-field="draft.phone" value="${esc(d.phone)}" placeholder="024 000 0000"></label>
           </div>
-          <div>
-            <div class="text-sm font-semibold mb-2">Availability status</div>
-            <div class="flex flex-wrap gap-2">
-              ${Object.entries(AVAIL_META).map(([k, m]) => `<button type="button" data-action="draft-avail" data-val="${k}" class="rounded-xl px-3.5 py-2 text-xs font-bold border transition-colors whitespace-nowrap shrink-0 ${(d.availability || 'available') === k ? 'bg-brand text-white border-brand' : 'border-slate-300 text-slate-600 hover:border-brand/50'}">${m.label}</button>`).join('')}
+          <div class="grid gap-3">
+            <div>
+              <div class="text-sm font-semibold mb-2">Availability status</div>
+              <div class="flex flex-wrap gap-2">
+                ${Object.entries(AVAIL_META).map(([k, m]) => `<button type="button" data-action="draft-avail" data-val="${k}" class="rounded-xl px-3.5 py-2 text-xs font-bold border transition-colors whitespace-nowrap shrink-0 ${(d.availability || 'available') === k ? 'bg-brand text-white border-brand' : 'border-slate-300 text-slate-600 hover:border-brand/50'}">${m.label}</button>`).join('')}
+              </div>
             </div>
+            <label class="grid gap-1 text-xs font-semibold text-slate-500">Status note (optional, max 40 chars)
+              <input class="${input} text-sm text-ink" data-field="draft.availabilityNote" maxlength="40" value="${esc(d.availabilityNote || '')}" placeholder="e.g. In East Legon today · Back Mon 9am"></label>
           </div>
           <div class="grid sm:grid-cols-2 gap-4">
             <label class="grid gap-1 text-sm font-semibold">Years of experience<input type="number" min="0" max="70" class="${input}" data-field="draft.years" value="${esc(d.years)}"></label>
@@ -2170,7 +2693,7 @@ const phoneMock = () => `
         <div class="pc-wa-phone-head text-white">
           <div class="pc-phone-statusbar" aria-hidden="true">
             <span>9:41</span>
-            <div class="pc-phone-island"><span class="pc-phone-island-lens"></span></div>
+            <div id="phone-island" class="pc-phone-island"><span class="pc-phone-island-mic"></span><span class="pc-phone-island-speaker"></span><span class="pc-phone-island-lens"></span></div>
             <span class="inline-flex items-center gap-1.5">
               <svg width="13" height="10" viewBox="0 0 14 10" fill="currentColor"><rect x="0" y="7" width="2.2" height="3" rx="0.6"/><rect x="3.5" y="5" width="2.2" height="5" rx="0.6"/><rect x="7" y="3" width="2.2" height="7" rx="0.6"/><rect x="10.5" y="0.5" width="2.2" height="9.5" rx="0.6"/></svg>
               <span>5G</span>
@@ -2230,8 +2753,10 @@ function runChat() {
   const msgs = [...document.querySelectorAll('#chat .msg')];
   if (!chat || !msgs.length) return;
 
+  const islandEl = document.getElementById('phone-island');
   const setTyping = (on) => {
     if (statusEl) statusEl.textContent = on ? 'typing…' : 'Plumber · online';
+    if (islandEl) islandEl.classList.toggle('is-typing', Boolean(on));
     if (!typingEl) return;
     if (on) {
       typingEl.classList.remove('hidden-slot');
@@ -2459,20 +2984,20 @@ async function downloadQrPoster(worker) {
 
   // Branding
   ctx.fillStyle = '#FBBF24';
-  ctx.font = 'bold 26px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.font = 'bold 26px "DM Sans", system-ui, sans-serif';
   ctx.fillText('NKABOM GHANA', 64, 86);
 
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '800 50px "Bricolage Grotesque", system-ui, sans-serif';
+  ctx.font = '800 50px "Manrope", system-ui, sans-serif';
   ctx.fillText(String(worker.name || '').slice(0, 26), 64, 152);
 
   ctx.fillStyle = 'rgba(255,255,255,0.85)';
-  ctx.font = '600 28px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.font = '600 28px "DM Sans", system-ui, sans-serif';
   ctx.fillText(`${worker.category || ''} · ${worker.area || ''}`.slice(0, 44), 64, 202);
 
   if (worker.rateNote) {
     ctx.fillStyle = '#FDE68A';
-    ctx.font = 'bold 24px "Plus Jakarta Sans", system-ui, sans-serif';
+    ctx.font = 'bold 24px "DM Sans", system-ui, sans-serif';
     ctx.fillText(String(worker.rateNote).slice(0, 46), 64, 240);
   }
 
@@ -2490,11 +3015,11 @@ async function downloadQrPoster(worker) {
   // Call to action footer
   ctx.fillStyle = '#1C1917';
   ctx.textAlign = 'center';
-  ctx.font = '800 34px "Bricolage Grotesque", system-ui, sans-serif';
+  ctx.font = '800 34px "Manrope", system-ui, sans-serif';
   ctx.fillText('Scan to view portfolio & chat on WhatsApp', 450, 1025);
 
   ctx.fillStyle = '#5B697D';
-  ctx.font = '600 22px "Plus Jakarta Sans", system-ui, sans-serif';
+  ctx.font = '600 22px "DM Sans", system-ui, sans-serif';
   ctx.fillText(`WhatsApp: ${worker.phone || ''} · Direct contact · 0% Commission`, 450, 1072);
 
   const link = document.createElement('a');
@@ -2806,7 +3331,7 @@ async function submitReview() {
   r.busy = false; render();
 }
 
-function routeFromHash() {
+function routeFromLocation() {
   const h = location.hash || '';
   const rateMatch = h.match(/^#rate\/([A-Za-z0-9_-]{6,80})$/);
   if (rateMatch) {
@@ -2820,6 +3345,15 @@ function routeFromHash() {
       })
       .catch((e) => { state.review.loading = false; state.review.error = softError(e, 'Feedback links are not switched on yet.'); })
       .then(() => { if (state.screen === 'review') render(); });
+    return;
+  }
+
+  const proPathMatch = location.pathname.match(/^\/(?:pro|w)\/([^/?#]+)$/);
+  if (proPathMatch) {
+    const slugKey = decodeURIComponent(proPathMatch[1]);
+    if (!(state.screen === 'profile' && state.selected && (state.selected.slug === slugKey || state.selected.id === slugKey))) {
+      openWorkerById(slugKey, false);
+    }
     return;
   }
 
@@ -2849,6 +3383,17 @@ function routeFromHash() {
   if (h === '#terms' || location.pathname === '/terms') {
     state.prev = state.screen;
     go('terms');
+    return;
+  }
+
+  if (location.pathname === '/' && !h && state.screen === 'profile') {
+    document.title = 'Nkabom – Find trusted local experts';
+    if (state.workers.length) {
+      state.role = 'customer';
+      go('market');
+    } else {
+      go('landing');
+    }
   }
 }
 
@@ -2896,7 +3441,7 @@ const reviewScreen = () => {
 
 /* ---------- Render ---------- */
 function render() {
-  const s = (state.screen === 'landing' && state.user) ? 'market' : state.screen;
+  const s = state.screen;
   const showFooter = ['landing', 'market', 'about', 'privacy', 'terms'].includes(s);
   $('#app').innerHTML =
     header() +
@@ -2916,24 +3461,29 @@ function render() {
 }
 
 function go(screen) {
-  let target = screen;
-  if (target === 'landing' && state.user) {
-    target = 'market';
-    state.role = 'customer';
-    loadMarket(1);
-  }
   state.menuOpen = false;
+  state.desktopMenuOpen = false;
   state.brief = null;
   state.reportModal = null;
   state.confirmModal = null;
   state.compareOpen = false;
   state.qrModal = null;
-  state.screen = target;
+  state.screen = screen;
+  if (screen !== 'profile') {
+    document.title = 'Nkabom – Find trusted local experts';
+  }
   render();
   window.scrollTo(0, 0);
 }
 
 async function openDashboardWithAnticipation() {
+  if (!state.user) {
+    const me = await AUTH.restoreSession();
+    if (me) state.user = me;
+  }
+  if (!state.user) {
+    return setRole('worker');
+  }
   state.role = 'worker';
   state.dashboardLoading = true;
   go('dashboard');
@@ -2951,6 +3501,7 @@ async function openDashboardWithAnticipation() {
     if (vr && vr.latest !== undefined) state.verif = vr.latest;
     if (state.user) {
       state.draft = state.myProfile ? { ...freshDraft(), ...state.myProfile } : { ...freshDraft(), name: state.user.name || '', phone: state.user.phone || '' };
+      state.quickAvailNote = state.myProfile ? (state.myProfile.availabilityNote || '') : '';
     }
   } catch {}
   const elapsed = Date.now() - startedAt;
@@ -2965,14 +3516,24 @@ async function openAccountWithAnticipation() {
   go('account');
   const startedAt = Date.now();
   try {
-    const [me, mp, sub] = await Promise.all([
+    const [me, pass] = await Promise.all([
       AUTH.restoreSession(),
-      AUTH.getMyWorkerProfile().catch(() => state.myProfile),
-      BILLING.getStatus().catch(() => state.sub),
+      CLIENT_PASS.init().catch(() => null),
     ]);
-    if (me) state.user = me;
-    if (mp !== undefined) state.myProfile = mp;
-    if (sub !== undefined) state.sub = sub;
+    if (pass) applyClientPassPayload(pass);
+    if (me) {
+      state.user = me;
+      const [mp, sub] = await Promise.all([
+        AUTH.getMyWorkerProfile().catch(() => state.myProfile),
+        BILLING.getStatus().catch(() => state.sub),
+      ]);
+      if (mp !== undefined) state.myProfile = mp;
+      if (sub !== undefined) state.sub = sub;
+    } else {
+      state.user = null;
+      state.myProfile = null;
+      state.sub = null;
+    }
     await refreshSavedWorkers();
   } catch {}
   const elapsed = Date.now() - startedAt;
@@ -2981,27 +3542,49 @@ async function openAccountWithAnticipation() {
   if (state.screen === 'account') render();
 }
 
-function setRole(r) {
-  if (['#terms', '#privacy', '#about'].includes(location.hash) || ['/terms', '/privacy', '/about'].includes(location.pathname)) {
+async function setRole(r) {
+  if (location.pathname !== '/' || ['#terms', '#privacy', '#about'].includes(location.hash)) {
     history.replaceState(null, '', '/' + location.search);
   }
-  if (r === 'worker' && !state.user) {
-    state.role = 'customer';
-    state.showPw = false;
-    state.auth = { mode: 'login', error: '', info: '', values: {}, reason: 'Sign in to create or edit your worker profile. Browsing stays open to everyone.' };
-    return go('auth');
+  if (r === 'worker') {
+    setAccountMode('pro');
+    if (!state.user) {
+      state.role = 'customer';
+      state.showPw = false;
+      state.auth = { mode: 'login', error: '', info: '', values: {}, reason: 'Sign in or create an account to publish and manage your Pro Studio worker profile.' };
+      return go('auth');
+    }
+    state.role = 'worker';
+    return openDashboardWithAnticipation();
   }
-  state.role = r;
-  if (r === 'customer') {
+
+  state.role = 'customer';
+  if (state.query.trim() || state.location.trim() || state.category) {
+    recordSearchHistory({ query: state.query, location: state.location, category: state.category });
+  }
+  const enteringDirectory = state.screen !== 'market';
+  if (enteringDirectory) {
+    const transPromise = showTransitionLoader('directory', {
+      query: state.query,
+      location: state.location,
+      category: state.category,
+    });
+    const fetchPromise = loadMarket(1, { silent: true, anticipate: false });
+    go('market');
+    await Promise.all([transPromise, fetchPromise]);
+    if (state.screen === 'market') updateMarket();
+  } else {
     go('market');
     loadMarket(1, { anticipate: true });
-  } else {
-    openDashboardWithAnticipation();
   }
 }
 
 /* ---------- Events ---------- */
 document.addEventListener('click', async (e) => {
+  if (state.desktopMenuOpen && !e.target.closest('[data-desktop-menu-wrap]')) {
+    state.desktopMenuOpen = false;
+    render();
+  }
   const waAnchor = e.target.closest('a[data-wa-worker]');
   if (waAnchor && waAnchor.dataset.waWorker) {
     WORKERS.track(waAnchor.dataset.waWorker, 'wa_click');
@@ -3012,6 +3595,19 @@ document.addEventListener('click', async (e) => {
   switch (d.action) {
     case 'skip': setRole('customer'); break;
     case 'auth': state.showPw = false; state.auth = { mode: d.mode || 'login', error: '', info: '', reason: '', values: {}, resetToken: '' }; go('auth'); break;
+    case 'auth-worker':
+      setAccountMode('pro');
+      state.showPw = false;
+      state.auth = {
+        mode: d.mode === 'signup' ? 'signup' : 'login',
+        error: '',
+        info: '',
+        values: {},
+        resetToken: '',
+        reason: 'Pro Studio gives you a public profile, portfolio gallery, and direct WhatsApp leads.',
+      };
+      go('auth');
+      break;
     case 'auth-mode': {
       const af = document.querySelector('[data-form="auth"]');
       if (af) { const v = Object.fromEntries(new FormData(af)); state.auth.values = { ...state.auth.values, name: v.name ?? state.auth.values?.name, phone: v.phone ?? state.auth.values?.phone, email: v.email ?? state.auth.values?.email }; }
@@ -3057,6 +3653,35 @@ document.addEventListener('click', async (e) => {
       if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       break;
     }
+    case 'switch-account-mode':
+      setAccountMode(d.mode === 'pro' ? 'pro' : 'client');
+      state.desktopMenuOpen = false;
+      if (state.screen === 'account') render();
+      else openAccountWithAnticipation();
+      break;
+    case 'copy-client-id':
+      if (navigator.clipboard) navigator.clipboard.writeText(state.clientId).then(() => toast(`Copied ${state.clientId}`), () => toast(state.clientId));
+      else toast(state.clientId);
+      break;
+    case 'run-history': {
+      const hit = state.searchHistory.find((it) => it.id === d.id);
+      if (hit) {
+        state.query = hit.query || '';
+        state.location = hit.location || '';
+        state.category = hit.category || '';
+        setRole('customer');
+      }
+      break;
+    }
+    case 'del-history':
+      removeSearchHistory(d.id);
+      render();
+      break;
+    case 'clear-history':
+      clearSearchHistory();
+      toast('Search history cleared.');
+      render();
+      break;
     case 'auth-forgot': state.showPw = false; state.auth.mode = 'forgot'; state.auth.error = ''; state.auth.info = ''; render(); break;
     case 'auth-login': state.showPw = false; state.auth.mode = 'login'; state.auth.error = ''; state.auth.info = ''; render(); break;
     case 'account': openAccountWithAnticipation(); break;
@@ -3068,14 +3693,14 @@ document.addEventListener('click', async (e) => {
       });
       break;
     case 'home':
-      if (location.hash || ['/terms', '/privacy', '/about'].includes(location.pathname)) {
+      if (location.hash || location.pathname !== '/') {
         history.replaceState(null, '', '/' + location.search);
       }
-      if (state.user) setRole('customer');
-      else go('landing');
+      go('landing');
       break;
     case 'toggle-theme': toggleTheme(); break;
     case 'toggle-menu': state.menuOpen = !state.menuOpen; render(); break;
+    case 'toggle-desktop-menu': state.desktopMenuOpen = !state.desktopMenuOpen; render(); break;
     case 'quick-search':
       state.category = '';
       state.query = d.svc || '';
@@ -3128,6 +3753,9 @@ document.addEventListener('click', async (e) => {
     case 'category': {
       const next = d.name || '';
       state.category = !next ? '' : (state.category === next ? '' : next);
+      if (state.category || state.query.trim() || state.location.trim()) {
+        recordSearchHistory({ query: state.query, location: state.location, category: state.category });
+      }
       triggerSearchPulse();
       applyLocalFilter(1);
       loadMarket(1, { silent: true });
@@ -3135,6 +3763,12 @@ document.addEventListener('click', async (e) => {
     }
     case 'bookmark': {
       e.stopPropagation();
+      const btn = e.target.closest('.pc-bm-btn');
+      if (btn) {
+        btn.classList.remove('is-popping');
+        void btn.offsetWidth;
+        btn.classList.add('is-popping');
+      }
       const targetId = d.id || (state.selected && state.selected.id);
       const found =
         (state.selected && String(state.selected.id) === String(targetId) && state.selected) ||
@@ -3147,8 +3781,12 @@ document.addEventListener('click', async (e) => {
     }
     case 'open': openWorkerById(d.id, true); break;
     case 'back':
-      history.replaceState(null, '', location.pathname + location.search);
+      history.replaceState(null, '', '/' + location.search);
       setRole('customer');
+      break;
+    case 'refresh-market':
+      state.marketCache = null;
+      loadMarket(state.workersPage, { anticipate: true });
       break;
     case 'page': loadMarket(Number(d.page) || 1, { anticipate: true }); break;
     case 'retry-market': loadMarket(state.workersPage, { anticipate: true }); break;
@@ -3193,12 +3831,16 @@ document.addEventListener('click', async (e) => {
     case 'rv-blaze': state.review.blaze = !state.review.blaze; render(); break;
     case 'rv-star': state.review.rating = state.review.rating === +d.v ? 0 : +d.v; render(); break;
     case 'rv-home':
-      history.replaceState(null, '', location.pathname + location.search);
+      history.replaceState(null, '', '/' + location.search);
       state.review = null;
       if (state.user) setRole('customer');
       else go('landing');
       break;
-    case 'city': state.location = state.location.toLowerCase() === d.name.toLowerCase() ? '' : d.name; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
+    case 'city':
+      state.location = state.location.toLowerCase() === d.name.toLowerCase() ? '' : d.name;
+      if (state.location) recordSearchHistory({ query: state.query, location: state.location, category: state.category });
+      triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true });
+      break;
     case 'verified': state.verifiedOnly = !state.verifiedOnly; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
     case 'available': state.availableOnly = !state.availableOnly; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
     case 'saved-filter': state.savedOnly = !state.savedOnly; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
@@ -3206,6 +3848,31 @@ document.addEventListener('click', async (e) => {
     case 'clear': state.category = ''; state.query = ''; state.location = ''; state.verifiedOnly = false; state.availableOnly = false; state.savedOnly = false; state.minRating = 0; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); break;
     case 'clear-query': state.query = ''; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); { const el = $('[data-field="query"]'); if (el) { el.value = ''; el.focus(); } syncSearchClearButtons(); } break;
     case 'clear-location': state.location = ''; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); { const el = $('[data-field="location"]'); if (el) { el.value = ''; el.focus(); } syncSearchClearButtons(); } break;
+    case 'quick-avail':
+    case 'save-quick-avail': {
+      if (!state.myProfile || state.quickAvailBusy) break;
+      const nextAvail = d.action === 'quick-avail' ? (d.val || 'available') : (state.myProfile.availability || 'available');
+      const nextNote = String(state.quickAvailNote || '').trim().slice(0, 40);
+      state.quickAvailBusy = true;
+      render();
+      try {
+        const updated = await WORKERS.updateAvailability({
+          availability: nextAvail,
+          availabilityNote: nextNote,
+        });
+        state.myProfile = updated;
+        state.draft.availability = updated.availability;
+        state.draft.availabilityNote = updated.availabilityNote || '';
+        state.quickAvailNote = updated.availabilityNote || '';
+        state.marketCache = null;
+        toast('Live availability updated.');
+      } catch (err) {
+        toast(err.message || 'Could not update availability.');
+      }
+      state.quickAvailBusy = false;
+      render();
+      break;
+    }
     case 'draft-type': state.draft.type = d.type; render(); break;
     case 'draft-cat': state.draft.category = d.name; render(); break;
     case 'draft-avail': state.draft.availability = d.val || 'available'; render(); break;
@@ -3331,6 +3998,7 @@ document.addEventListener('click', async (e) => {
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    if (state.desktopMenuOpen) { state.desktopMenuOpen = false; render(); return; }
     if (state.menuOpen) { state.menuOpen = false; render(); return; }
     if (state.brief) { state.brief = null; render(); return; }
     if (state.reportModal) { state.reportModal = null; render(); return; }
@@ -3348,6 +4016,9 @@ document.addEventListener('input', (e) => {
   if (f === 'query' || f === 'location') { state[f] = v; syncSearchClearButtons(); scheduleMarketLoad(1); }
   else if (f === 'sort') { state.sort = v; triggerSearchPulse(); applyLocalFilter(1); loadMarket(1, { silent: true }); }
   else if (f === 'portfolioTitle') { state.portfolioTitle = v; }
+  else if (f === 'quickAvailNote') { state.quickAvailNote = v; }
+  else if (f.startsWith('clientPinForm.')) { state.clientPinForm[f.split('.')[1]] = v; state.clientPinForm.error = ''; state.clientPinForm.info = ''; }
+  else if (f.startsWith('clientRestoreForm.')) { state.clientRestoreForm[f.split('.')[1]] = v; state.clientRestoreForm.error = ''; }
   else if (f.startsWith('invite.')) state.invite[f.split('.')[1]] = v;
   else if (f.startsWith('rv.')) { state.review[f.split('.')[1]] = v; paintReview(); }
   else if (f.startsWith('brief.')) { state.brief[f.split('.')[1]] = v; updateBrief(); }
@@ -3455,6 +4126,44 @@ document.addEventListener('submit', async (e) => {
     }
     render();
   }
+  if (kind === 'client-pin') {
+    const cf = state.clientPinForm;
+    cf.pin = String(f.pin || cf.pin || '').trim();
+    cf.error = '';
+    cf.info = '';
+    cf.busy = true;
+    render();
+    try {
+      const res = await CLIENT_PASS.setPin(cf.pin);
+      state.clientHasPin = Boolean(res.hasPin);
+      cf.pin = '';
+      cf.busy = false;
+      cf.info = 'Sync PIN saved. Keep your ID and PIN to restore anywhere.';
+      toast('Sync PIN saved.');
+    } catch (err) {
+      cf.busy = false;
+      cf.error = err.message || 'Could not save Sync PIN.';
+    }
+    render();
+  }
+  if (kind === 'client-restore') {
+    const rf = state.clientRestoreForm;
+    rf.code = String(f.code || rf.code || '').trim().toUpperCase();
+    rf.pin = String(f.pin || rf.pin || '').trim();
+    rf.error = '';
+    rf.busy = true;
+    render();
+    try {
+      const pass = await CLIENT_PASS.restore({ code: rf.code, pin: rf.pin });
+      applyClientPassPayload(pass, { forceAll: true });
+      state.clientRestoreForm = { code: '', pin: '', busy: false, error: '' };
+      toast(`Restored Client Pass ${pass.code}.`);
+    } catch (err) {
+      rf.busy = false;
+      rf.error = err.message || 'Invalid Client Pass ID or Sync PIN.';
+    }
+    render();
+  }
   if (kind === 'report' && state.reportModal && state.selected) {
     state.reportModal.error = '';
     state.reportModal.reason = f.reason || '';
@@ -3473,15 +4182,48 @@ document.addEventListener('submit', async (e) => {
   }
 });
 
+let preloadedPro = false;
+(() => {
+  try {
+    const preloadEl = document.getElementById('nkabom-preload');
+    if (!preloadEl) return;
+    const data = JSON.parse(preloadEl.textContent || 'null');
+    if (data && data.worker) {
+      preloadedPro = true;
+      state.selected = data.worker;
+      state.profileLoading = false;
+      state.profileError = '';
+      state.screen = 'profile';
+      if (data.worker.name) {
+        document.title = `${data.worker.name} — ${data.worker.category} in ${data.worker.area} | Nkabom`;
+      }
+      if (data.worker.id && !sessionViewedIds.has(data.worker.id)) {
+        sessionViewedIds.add(data.worker.id);
+        WORKERS.track(data.worker.id, 'view');
+      }
+    } else if (data && data.requestedSlug) {
+      preloadedPro = true;
+      state.selected = null;
+      state.profileLoading = false;
+      state.profileError = 'This profile is not available right now.';
+      state.screen = 'profile';
+    }
+  } catch {}
+})();
+
 render();
 loadConfig();
 loadStats();
-window.addEventListener('hashchange', routeFromHash);
-routeFromHash();
+hydrateClientPass();
+window.addEventListener('hashchange', routeFromLocation);
+window.addEventListener('popstate', routeFromLocation);
+if (!preloadedPro) {
+  routeFromLocation();
+}
 AUTH.restoreSession().then(async (u) => {
   if (u) {
     await startSession(u);
-    if (state.screen === 'landing') {
+    if (state.screen === 'landing' && !preloadedPro) {
       state.role = 'customer';
       go('market');
       loadMarket(1, { anticipate: true });
@@ -3490,3 +4232,27 @@ AUTH.restoreSession().then(async (u) => {
     }
   }
 }).catch(() => {});
+
+async function syncActiveScreenSilently() {
+  if (document.visibilityState === 'hidden') return;
+  if (state.screen === 'market' && !state.workersLoading) {
+    state.marketCache = null;
+    loadMarket(state.workersPage, { silent: true });
+  } else if (state.screen === 'profile' && state.selected && !state.profileLoading && !state.brief && !state.reportModal) {
+    try {
+      const key = state.selected.slug || state.selected.id;
+      const fresh = await WORKERS.get(key);
+      if (state.screen === 'profile' && fresh) {
+        state.selected = fresh;
+        render();
+      }
+    } catch {}
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    syncActiveScreenSilently();
+  }
+});
+setInterval(syncActiveScreenSilently, 45000);

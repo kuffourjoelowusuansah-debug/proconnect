@@ -234,3 +234,199 @@ test('End-to-end features: availability filter, bookmarks, analytics tracking, a
     fs.rmSync(tmpRoot, { recursive: true, force: true });
   }
 });
+
+test('Client Pass persistence + PIN restore, Live Availability quick switch, Pro Studio insights, and /pro/:slug SSR meta with XSS protection', async () => {
+  const db = openDatabase(':memory:');
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'nkabom-dyn-'));
+  const app = createApp({
+    db,
+    uploadsDir: path.join(tmpRoot, 'uploads'),
+    verificationsDir: path.join(tmpRoot, 'verifications'),
+  });
+
+  const server = http.createServer(app);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  const makeClient = () => {
+    const cookies = new Map();
+    return {
+      cookies,
+      async fetch(urlPath, opts: any = {}) {
+        const headers: Record<string, string> = {
+          'X-Requested-With': 'Nkabom',
+          ...(opts.headers || {}),
+        };
+        if (cookies.size > 0) {
+          headers.Cookie = [...cookies.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+        }
+        let body = opts.body;
+        if (body && !(body instanceof FormData) && typeof body !== 'string') {
+          headers['Content-Type'] = 'application/json';
+          body = JSON.stringify(body);
+        }
+        const res = await fetch(baseUrl + urlPath, {
+          method: opts.method || 'GET',
+          headers,
+          body,
+        });
+        const setCookies = res.headers.getSetCookie ? res.headers.getSetCookie() : [];
+        for (const sc of setCookies) {
+          const kv = sc.split(';')[0];
+          const eq = kv.indexOf('=');
+          const k = kv.slice(0, eq);
+          const v = decodeURIComponent(kv.slice(eq + 1));
+          if (!v) cookies.delete(k);
+          else cookies.set(k, v);
+        }
+        const ct = res.headers.get('content-type') || '';
+        const data = ct.includes('application/json') ? await res.json().catch(() => null) : await res.text();
+        return { status: res.status, headers: res.headers, data };
+      },
+    };
+  };
+
+  try {
+    const pro = makeClient();
+    await pro.fetch('/api/auth/signup', {
+      method: 'POST',
+      body: { name: 'Kofi Mensah', phone: '0244112233', email: 'kofi@nkabom.gh', password: 'password123', agree: true },
+    });
+
+    // Include </script> payload to test XSS escaping inside #nkabom-preload and <meta> tags
+    const created = await pro.fetch('/api/me/worker', {
+      method: 'PUT',
+      body: {
+        type: 'Personal',
+        name: 'Kwame <script>alert(1)</script> Mensah',
+        category: 'Plumbing',
+        area: 'Kumasi, Ahodwo',
+        phone: '0244112233',
+        years: 8,
+        bio: 'Emergency pipe repairs </script><img src=x onerror=alert(2)> in Kumasi.',
+        availability: 'available',
+        availabilityNote: 'Ready in Ahodwo today',
+      },
+    });
+    assert.equal(created.status, 201);
+    const workerId = created.data.id;
+    const slug = created.data.slug;
+    assert.ok(slug && slug.includes('kwame'));
+    assert.equal(created.data.availabilityNote, 'Ready in Ahodwo today');
+    assert.ok(created.data.freshnessLabel);
+
+    // Quick Availability Switch PATCH
+    const quick = await pro.fetch('/api/me/worker/availability', {
+      method: 'PATCH',
+      body: { availability: 'busy', availabilityNote: 'Back Mon 8am' },
+    });
+    assert.equal(quick.status, 200);
+    assert.equal(quick.data.availability, 'busy');
+    assert.equal(quick.data.availabilityNote, 'Back Mon 8am');
+
+    const badQuick = await pro.fetch('/api/me/worker/availability', {
+      method: 'PATCH',
+      body: { availability: 'invalid_state', availabilityNote: 'Test' },
+    });
+    assert.equal(badQuick.status, 400);
+
+    // Track events via slug & inspect expanded Pro Studio analytics
+    const trkView = await pro.fetch(`/api/workers/${encodeURIComponent(slug)}/track`, { method: 'POST', body: { type: 'view' } });
+    const trkWa = await pro.fetch(`/api/workers/${encodeURIComponent(slug)}/track`, { method: 'POST', body: { type: 'wa_click' } });
+    assert.equal(trkView.status, 201);
+    assert.equal(trkWa.status, 201);
+
+    const an = await pro.fetch('/api/me/worker/analytics');
+    assert.equal(an.status, 200);
+    assert.equal(an.data.views30d, 1);
+    assert.equal(an.data.waClicks30d, 1);
+    assert.equal(an.data.conversionRate, 100);
+    assert.equal(an.data.dailySeries.length, 7);
+
+    // Lookup by slug returns same profile
+    const bySlug = await fetch(`${baseUrl}/api/workers/${encodeURIComponent(slug)}`).then((r) => r.json());
+    assert.equal(bySlug.id, workerId);
+    assert.equal(bySlug.availability, 'busy');
+    assert.equal(bySlug.availabilityNote, 'Back Mon 8am');
+
+    // SSR /pro/:slug injects OG/Twitter meta + XSS-escaped preload JSON
+    const ssrRes = await pro.fetch(`/pro/${encodeURIComponent(slug)}`);
+    assert.equal(ssrRes.status, 200);
+    assert.ok(ssrRes.data.includes('<meta property="og:title"'));
+    assert.ok(ssrRes.data.includes(`<link rel="canonical"`));
+    assert.ok(ssrRes.data.includes('id="nkabom-preload"'));
+    assert.equal(ssrRes.data.includes('</script><img'), false);
+    assert.ok(ssrRes.data.includes('\\u003c/script\\u003e'));
+
+    const missingSsr = await pro.fetch('/pro/does-not-exist-999');
+    assert.equal(missingSsr.status, 404);
+    assert.ok(missingSsr.data.includes('"worker":null'));
+
+    // Guest Client Pass persistence + PIN + Cross-device restore
+    const guest1 = makeClient();
+    const passInit = await guest1.fetch('/api/client-pass');
+    assert.equal(passInit.status, 200);
+    assert.match(passInit.data.code, /^USER\d{4,}$/);
+    assert.ok(guest1.cookies.get('nkabom_pass'));
+    const passCode = passInit.data.code;
+
+    // Record & dedupe search history
+    await guest1.fetch('/api/client-pass/searches', { method: 'POST', body: { query: 'Plumber', location: 'Kumasi', category: 'Plumbing' } });
+    const s2 = await guest1.fetch('/api/client-pass/searches', { method: 'POST', body: { query: 'Electrician', location: 'Accra', category: '' } });
+    assert.equal(s2.data.searches.length, 2);
+    const s3 = await guest1.fetch('/api/client-pass/searches', { method: 'POST', body: { query: 'Plumber', location: 'Kumasi', category: 'Plumbing' } });
+    assert.equal(s3.data.searches.length, 2); // deduped
+
+    // Guest bookmark persistence
+    const bm = await guest1.fetch('/api/client-pass/bookmarks', { method: 'POST', body: { workerId } });
+    assert.equal(bm.status, 200);
+    assert.deepEqual(bm.data.bookmarkIds, [workerId]);
+
+    // Unpinned pass cannot be restored on another device
+    const guest2 = makeClient();
+    const unpinnedRestore = await guest2.fetch('/api/client-pass/restore', {
+      method: 'POST',
+      body: { code: passCode, pin: '4820' },
+    });
+    assert.equal(unpinnedRestore.status, 401);
+
+    // Set valid PIN on guest1, reject invalid PIN first
+    const badPin = await guest1.fetch('/api/client-pass/pin', { method: 'POST', body: { pin: 'abc' } });
+    assert.equal(badPin.status, 400);
+    const setPin = await guest1.fetch('/api/client-pass/pin', { method: 'POST', body: { pin: '4820' } });
+    assert.equal(setPin.status, 200);
+    assert.equal(setPin.data.hasPin, true);
+
+    // Restore on fresh guest2 device using code + PIN -> recovers searches & bookmarks
+    const wrongPinRestore = await guest2.fetch('/api/client-pass/restore', {
+      method: 'POST',
+      body: { code: passCode, pin: '9999' },
+    });
+    assert.equal(wrongPinRestore.status, 401);
+
+    const okRestore = await guest2.fetch('/api/client-pass/restore', {
+      method: 'POST',
+      body: { code: passCode, pin: '4820' },
+    });
+    assert.equal(okRestore.status, 200);
+    assert.equal(okRestore.data.code, passCode);
+    assert.equal(okRestore.data.hasPin, true);
+    assert.equal(okRestore.data.searches.length, 2);
+    assert.deepEqual(okRestore.data.bookmarkIds, [workerId]);
+
+    // Delete individual search & clear all searches
+    const delSearch = await guest2.fetch(`/api/client-pass/searches/${okRestore.data.searches[0].id}`, { method: 'DELETE' });
+    assert.equal(delSearch.status, 200);
+    assert.equal(delSearch.data.searches.length, 1);
+
+    const clearAll = await guest2.fetch('/api/client-pass/searches', { method: 'DELETE' });
+    assert.equal(clearAll.status, 200);
+    assert.equal(clearAll.data.searches.length, 0);
+  } finally {
+    server.close();
+    db.close();
+    fs.rmSync(tmpRoot, { recursive: true, force: true });
+  }
+});
+

@@ -5,6 +5,8 @@ const {
   computeSubscriptionStatus,
   isWorkerVisible,
   formatMonthYear,
+  slugifyWorkerBase,
+  formatRelativeFreshness,
 } = require('./rules');
 
 const DATA_DIR = path.resolve(__dirname, '..', 'data');
@@ -70,6 +72,7 @@ function migrate(db) {
     CREATE TABLE IF NOT EXISTS workers (
       id TEXT PRIMARY KEY,
       user_id TEXT UNIQUE NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      slug TEXT UNIQUE,
       type TEXT NOT NULL CHECK (type IN ('Personal', 'Business')),
       name TEXT NOT NULL,
       category TEXT NOT NULL,
@@ -78,6 +81,9 @@ function migrate(db) {
       years INTEGER NOT NULL,
       bio TEXT NOT NULL DEFAULT '',
       availability TEXT NOT NULL DEFAULT 'available',
+      availability_note TEXT NOT NULL DEFAULT '',
+      availability_updated_at TEXT,
+      last_active_at TEXT,
       rate_note TEXT NOT NULL DEFAULT '',
       photo_url TEXT,
       photo_path TEXT,
@@ -215,6 +221,30 @@ function migrate(db) {
       reviewed_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS client_passes (
+      code TEXT PRIMARY KEY,
+      token_hash TEXT UNIQUE NOT NULL,
+      recovery_pin_hash TEXT,
+      created_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS client_pass_searches (
+      id TEXT PRIMARY KEY,
+      pass_code TEXT NOT NULL REFERENCES client_passes(code) ON DELETE CASCADE,
+      query TEXT NOT NULL DEFAULT '',
+      location TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT '',
+      searched_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS client_pass_bookmarks (
+      pass_code TEXT NOT NULL REFERENCES client_passes(code) ON DELETE CASCADE,
+      worker_id TEXT NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY (pass_code, worker_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_workers_status ON workers(status);
     CREATE INDEX IF NOT EXISTS idx_feedback_worker_status ON feedback(worker_id, status);
     CREATE INDEX IF NOT EXISTS idx_invites_worker ON feedback_invites(worker_id);
@@ -222,6 +252,8 @@ function migrate(db) {
     CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);
     CREATE INDEX IF NOT EXISTS idx_worker_events_lookup ON worker_events(worker_id, event_type, created_at);
     CREATE INDEX IF NOT EXISTS idx_verifications_status ON verification_requests(status, created_at);
+    CREATE INDEX IF NOT EXISTS idx_client_pass_searches_pass ON client_pass_searches(pass_code, searched_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_client_pass_bookmarks_pass ON client_pass_bookmarks(pass_code, created_at DESC);
   `);
 
   const userCols = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
@@ -235,6 +267,40 @@ function migrate(db) {
   }
   if (!workerCols.includes('rate_note')) {
     db.exec("ALTER TABLE workers ADD COLUMN rate_note TEXT NOT NULL DEFAULT '';");
+  }
+  if (!workerCols.includes('slug')) {
+    db.exec('ALTER TABLE workers ADD COLUMN slug TEXT;');
+  }
+  if (!workerCols.includes('availability_note')) {
+    db.exec("ALTER TABLE workers ADD COLUMN availability_note TEXT NOT NULL DEFAULT '';");
+  }
+  if (!workerCols.includes('availability_updated_at')) {
+    db.exec('ALTER TABLE workers ADD COLUMN availability_updated_at TEXT;');
+  }
+  if (!workerCols.includes('last_active_at')) {
+    db.exec('ALTER TABLE workers ADD COLUMN last_active_at TEXT;');
+  }
+
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_workers_slug ON workers(slug);');
+
+  const missingSlugs = db.prepare("SELECT id, name, area, updated_at, created_at FROM workers WHERE slug IS NULL OR TRIM(slug) = ''").all();
+  if (missingSlugs.length > 0) {
+    const existingSlugs = new Set(
+      db.prepare('SELECT slug FROM workers WHERE slug IS NOT NULL').all().map((r) => r.slug)
+    );
+    const updStmt = db.prepare('UPDATE workers SET slug = ?, availability_updated_at = COALESCE(availability_updated_at, ?), last_active_at = COALESCE(last_active_at, ?) WHERE id = ?');
+    for (const row of missingSlugs) {
+      const base = slugifyWorkerBase(row.name, row.area, row.id);
+      let candidate = base;
+      let idx = 2;
+      while (existingSlugs.has(candidate)) {
+        candidate = `${base}-${idx}`;
+        idx += 1;
+      }
+      existingSlugs.add(candidate);
+      const ts = row.updated_at || row.created_at || new Date().toISOString();
+      updStmt.run(candidate, ts, ts, row.id);
+    }
   }
 
   // Ensure previously seeded fake demo profiles are removed while preserving real accounts
@@ -284,8 +350,10 @@ function getWorkerMetrics(db, workerId) {
 function buildWorkerDTO(db, workerRow) {
   if (!workerRow) return null;
   const metrics = getWorkerMetrics(db, workerRow.id);
+  const freshnessTs = workerRow.availability_updated_at || workerRow.last_active_at || workerRow.updated_at || null;
   return {
     id: workerRow.id,
+    slug: workerRow.slug || workerRow.id,
     name: workerRow.name,
     type: workerRow.type,
     category: workerRow.category,
@@ -294,6 +362,10 @@ function buildWorkerDTO(db, workerRow) {
     years: Number(workerRow.years),
     bio: workerRow.bio || '',
     availability: workerRow.availability || 'available',
+    availabilityNote: workerRow.availability_note || '',
+    availabilityUpdatedAt: workerRow.availability_updated_at || workerRow.updated_at || null,
+    lastActiveAt: workerRow.last_active_at || workerRow.updated_at || null,
+    freshnessLabel: formatRelativeFreshness(freshnessTs),
     rateNote: workerRow.rate_note || '',
     photo: workerRow.photo_url || null,
     verified: Boolean(workerRow.verified),

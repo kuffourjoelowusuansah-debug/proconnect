@@ -9,12 +9,82 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, () => {
   const clean = (v) => String(v || '').trim();
 
+  const LOADER_DURATIONS = {
+    appOpenMs: 2600,
+    authTransitionMs: 900,
+    directoryTransitionMs: 780,
+  };
+
+  function getLoaderDurations() {
+    return { ...LOADER_DURATIONS };
+  }
+
   function getSplashSteps() {
     return [
       'Warming up Nkabom…',
       'Checking verified local professionals…',
+      'Preparing direct WhatsApp briefs…',
       'Ready in Accra, Kumasi & nationwide',
     ];
+  }
+
+  function getTransitionLoaderCopy(kind = 'directory', opts = {}) {
+    if (kind === 'signin' || kind === 'signup') {
+      const target = opts.isWorker ? 'Pro Studio' : 'your Nkabom space';
+      return {
+        headline: kind === 'signup' ? 'Account ready!' : 'Welcome back!',
+        durationMs: LOADER_DURATIONS.authTransitionMs,
+        steps: [
+          kind === 'signup' ? 'Activating your session…' : 'Verifying your session…',
+          `Opening ${target}…`,
+        ],
+      };
+    }
+
+    const q = clean(opts.query);
+    const loc = clean(opts.location);
+    const cat = clean(opts.category);
+    const focus = q ? `“${q}”` : cat ? cat : 'local pros';
+    const place = loc ? ` in ${loc}` : '';
+    return {
+      headline: 'Opening Directory',
+      durationMs: LOADER_DURATIONS.directoryTransitionMs,
+      steps: [
+        `Gathering ${focus}${place}…`,
+        'Loading verified IDs, Blazes & WhatsApp links…',
+      ],
+    };
+  }
+
+  function normalizeClientPassId(raw) {
+    const str = clean(raw).toUpperCase();
+    if (/^USER\d{4}$/.test(str)) return str;
+    const digits = Math.floor(1000 + Math.random() * 9000);
+    return `USER${digits}`;
+  }
+
+  function addSearchHistoryEntry(list, entry = {}, maxItems = 15) {
+    const query = clean(entry.query).slice(0, 80);
+    const location = clean(entry.location).slice(0, 80);
+    const category = clean(entry.category).slice(0, 50);
+    if (!query && !location && !category) {
+      return Array.isArray(list) ? list.slice(0, maxItems) : [];
+    }
+    const key = `${query.toLowerCase()}|${location.toLowerCase()}|${category.toLowerCase()}`;
+    const existing = Array.isArray(list) ? list : [];
+    const nextItem = {
+      id: clean(entry.id) || `sh_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`,
+      query,
+      location,
+      category,
+      searchedAt: clean(entry.searchedAt) || new Date().toISOString(),
+    };
+    const filtered = existing.filter((item) => {
+      if (!item || typeof item !== 'object') return false;
+      const k = `${clean(item.query).toLowerCase()}|${clean(item.location).toLowerCase()}|${clean(item.category).toLowerCase()}`;
+      return k !== key;
+    });
+    return [nextItem, ...filtered].slice(0, maxItems);
   }
 
   function getDirectoryLoaderCopy(opts = {}) {
@@ -95,7 +165,7 @@
   function getDashboardLoaderCopy(hasProfile = false) {
     if (hasProfile) {
       return {
-        headline: 'Loading your worker dashboard',
+        headline: 'Loading your Pro Studio',
         steps: [
           'Syncing your public profile & portfolio photos…',
           'Checking your 30-day trial & billing status…',
@@ -104,7 +174,7 @@
       };
     }
     return {
-      headline: 'Preparing your worker dashboard',
+      headline: 'Preparing your Pro Studio',
       steps: [
         'Setting up your public profile builder…',
         'Loading 30-day free trial details…',
@@ -115,10 +185,10 @@
 
   function getAccountLoaderCopy() {
     return {
-      headline: 'Loading account & settings',
+      headline: 'Loading your Account Hub',
       steps: [
-        'Syncing your personal details & plan status…',
-        'Checking security & privacy preferences…',
+        'Syncing Client Pass & Pro Studio modes…',
+        'Checking search history, saved pros & settings…',
       ],
     };
   }
@@ -129,7 +199,7 @@
         headline: 'Creating your Nkabom account',
         steps: isWorkerFlow
           ? [
-              'Saving your account details…',
+              'Saving your Pro Studio details…',
               'Securing your private session…',
               'Opening your worker dashboard…',
             ]
@@ -162,7 +232,7 @@
       headline: 'Signing you in',
       steps: [
         'Verifying your credentials…',
-        isWorkerFlow ? 'Opening your worker dashboard…' : 'Loading your Nkabom workspace…',
+        isWorkerFlow ? 'Opening your Pro Studio…' : 'Loading your Nkabom workspace…',
       ],
     };
   }
@@ -208,7 +278,11 @@
   }
 
   return {
+    getLoaderDurations,
     getSplashSteps,
+    getTransitionLoaderCopy,
+    normalizeClientPassId,
+    addSearchHistoryEntry,
     getDirectoryLoaderCopy,
     getSearchPulseCopy,
     getDashboardLoaderCopy,
