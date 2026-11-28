@@ -1,7 +1,8 @@
-const { UPLOADS_DIR, VERIFICATIONS_DIR } = require('./server/db');
-const { createStore } = require('./server/store');
-const { createApp } = require('./server/app');
-const { runDailyRemindersJob } = require('./server/notifications');
+const path = require('path');
+const { UPLOADS_DIR, VERIFICATIONS_DIR } = require('./db');
+const { createStore } = require('./store');
+const { createApp } = require('./app');
+const { runDailyRemindersJob } = require('./notifications');
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = '0.0.0.0';
@@ -15,10 +16,9 @@ const app = createApp({
   store,
   uploadsDir: UPLOADS_DIR,
   verificationsDir: VERIFICATIONS_DIR,
-  staticDir: __dirname,
+  staticDir: path.resolve(__dirname, '..'),
 });
 
-// Run daily subscription reminders & expiry job once on boot and every 24h
 runDailyRemindersJob(store).catch((err) => {
   console.warn('Initial reminder job skipped:', err && err.message ? err.message : err);
 });
