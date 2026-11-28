@@ -1,5 +1,4 @@
-app.js
-server.js
 .git
 .DS_Store
 *.test.ts
+coverage
